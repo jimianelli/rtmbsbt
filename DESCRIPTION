@@ -1,0 +1,10 @@
+Package: rtmbFunctions
+Type: Package
+Title: RTMB Functions for Statistical Modeling
+Version: 0.1.0
+Author: Darcy Webber 
+Maintainer: Your Name <your.email@example.com>
+Description: A collection of RTMB functions for statistical modeling.
+License: GPL-3
+Depends: R (>= 3.5.0)
+Imports: RTMB, Matrix
