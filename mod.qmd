@@ -1,0 +1,435 @@
+Explanation
+Data and Parameters: The data and par lists contain the input data and parameters, respectively. These are passed to the objective_function.
+
+Objective Function: The objective_function computes the negative log-likelihood (nll) and returns a list of results, including likelihood components, predictions, and residuals.
+
+RTMB Compatibility: The model is written in R but uses RTMB to handle the C++ backend, making it compatible with TMB's optimization and simulation tools.
+
+Report: The report list contains all the outputs, including likelihood components, predictions, and residuals.
+
+This setup allows you to use the model in R while leveraging the performance of TMB's C++ backend. You can optimize the model using RTMB::MakeADFun and RTMB::nlminb.
+Below is the conversion of the provided TMB model into RTMB. The RTMB package allows you to write models in R while leveraging the C++ backend of TMB. This makes it easier to integrate with R and use R's extensive ecosystem for data manipulation and visualization.
+
+### RTMB Model in R
+
+```r
+library(RTMB)
+
+# Define the objective function
+objective_function <- function(par, data) {
+  # Extract data
+  first_yr <- data$first_yr
+  last_yr <- data$last_yr
+  n_season <- 2
+  n_fishery <- 6
+  n_year <- last_yr - first_yr + 1
+  
+  min_age <- data$min_age
+  max_age <- data$max_age
+  age_a <- data$age_a
+  age_increase_M <- data$age_increase_M
+  n_age <- max_age - min_age + 1
+  
+  length_m50 <- data$length_m50
+  length_m95 <- data$length_m95
+  length_mu_ysa <- data$length_mu_ysa
+  length_sd_a <- data$length_sd_a
+  weight_fya <- data$weight_fya
+  dl_yal <- data$dl_yal
+  alk_ysal <- data$alk_ysal
+  
+  first_yr_catch <- data$first_yr_catch
+  first_yr_catch_f <- data$first_yr_catch_f
+  catch_year <- data$catch_year
+  catch_obs_ysf <- data$catch_obs_ysf
+  removal_switch_f <- data$removal_switch_f
+  
+  sel_switch_f <- data$sel_switch_f
+  sel_min_age_f <- data$sel_min_age_f
+  sel_max_age_f <- data$sel_max_age_f
+  sel_end_f <- data$sel_end_f
+  sel_change_sd_fy <- data$sel_change_sd_fy
+  sel_smooth_sd_f <- data$sel_smooth_sd_f
+  sel_change_year_fy <- data$sel_change_year_fy
+  
+  n_pops <- data$n_pops
+  pop_obs <- data$pop_obs
+  paly <- data$paly
+  pop_switch <- data$pop_switch
+  
+  n_gt <- data$n_gt
+  gt_obs <- data$gt_obs
+  gt_switch <- data$gt_switch
+  
+  n_hsps <- data$n_hsps
+  hsp_obs <- data$hsp_obs
+  hsp_false_negative <- data$hsp_false_negative
+  hsp_switch <- data$hsp_switch
+  
+  aerial_years <- data$aerial_years
+  aerial_obs <- data$aerial_obs
+  aerial_cv <- data$aerial_cv
+  aerial_cov <- data$aerial_cov
+  aerial_switch <- data$aerial_switch
+  n_aerial <- length(aerial_years)
+  
+  troll_years <- data$troll_years
+  troll_obs <- data$troll_obs
+  troll_sd <- data$troll_sd
+  troll_switch <- data$troll_switch
+  n_troll <- length(troll_years)
+  
+  cpue_years <- data$cpue_years
+  cpue_obs <- data$cpue_obs
+  cpue_a1 <- data$cpue_a1
+  cpue_a2 <- data$cpue_a2
+  cpue_switch <- data$cpue_switch
+  n_cpue <- length(cpue_years)
+  
+  af_year <- data$af_year
+  af_fishery <- data$af_fishery
+  af_min_age <- data$af_min_age
+  af_max_age <- data$af_max_age
+  af_obs <- data$af_obs
+  af_n <- data$af_n
+  af_switch <- data$af_switch
+  n_af <- length(af_year)
+  
+  lf_year <- data$lf_year
+  lf_season <- data$lf_season
+  lf_fishery <- data$lf_fishery
+  lf_minbin <- data$lf_minbin
+  lf_obs <- data$lf_obs
+  lf_n <- data$lf_n
+  lf_switch <- data$lf_switch
+  af_sliced_ysfa <- data$af_sliced_ysfa
+  n_lf <- length(lf_year)
+  
+  min_K <- data$min_K
+  n_K <- data$n_K
+  n_T <- data$n_T
+  n_I <- data$n_I
+  n_J <- data$n_J
+  tag_release_cta <- data$tag_release_cta
+  tag_recap_ctaa <- data$tag_recap_ctaa
+  tag_rel_min_age <- data$tag_rel_min_age
+  tag_rel_max_age <- data$tag_rel_max_age
+  tag_recap_max_age <- data$tag_recap_max_age
+  tag_shed_immediate <- data$tag_shed_immediate
+  tag_shed_continuous <- data$tag_shed_continuous
+  tag_rep_rates_ya <- data$tag_rep_rates_ya
+  tag_var_factor <- data$tag_var_factor
+  tag_switch <- data$tag_switch
+  
+  # Extract parameters
+  par_log_B0 <- par$par_log_B0
+  par_log_psi <- par$par_log_psi
+  par_log_m0 <- par$par_log_m0
+  par_log_m4 <- par$par_log_m4
+  par_log_m10 <- par$par_log_m10
+  par_log_m30 <- par$par_log_m30
+  par_log_cpue_q <- par$par_log_cpue_q
+  par_cpue_creep <- par$par_cpue_creep
+  par_log_cpue_omega <- par$par_log_cpue_omega
+  par_log_cpue_tau <- par$par_log_cpue_tau
+  par_log_aerial_sel <- par$par_log_aerial_sel
+  par_log_aerial_tau <- par$par_log_aerial_tau
+  par_log_troll_tau <- par$par_log_troll_tau
+  par_log_hsp_q <- par$par_log_hsp_q
+  par_log_tag_H_factor <- par$par_log_tag_H_factor
+  par_log_af_tau <- par$par_log_af_tau
+  par_log_lf_tau <- par$par_log_lf_tau
+  par_logit_sel_rhoa_f <- par$par_logit_sel_rhoa_f
+  par_logit_sel_rhoy_f <- par$par_logit_sel_rhoy_f
+  par_logit_sel_rhoc_f <- par$par_logit_sel_rhoc_f
+  par_log_sel_sigma_f <- par$par_log_sel_sigma_f
+  par_log_rec_sigma <- par$par_log_rec_sigma
+  par_logit_rec_rho <- par$par_logit_rec_rho
+  par_logit_rec_h <- par$par_logit_rec_h
+  par_rec_dev_y <- par$par_rec_dev_y
+  
+  par_log_sel_skel <- par$par_log_sel_skel
+  par_log_sel1_ay <- par$par_log_sel1_ay
+  par_log_sel2_ay <- par$par_log_sel2_ay
+  par_log_sel3_ay <- par$par_log_sel3_ay
+  par_log_sel4_ay <- par$par_log_sel4_ay
+  par_log_sel5_ay <- par$par_log_sel5_ay
+  par_log_sel6_ay <- par$par_log_sel6_ay
+  
+  # Transform parameters
+  B0 <- exp(par_log_B0)
+  par_psi <- exp(par_log_psi)
+  par_m0 <- exp(par_log_m0)
+  par_m4 <- exp(par_log_m4)
+  par_m10 <- exp(par_log_m10)
+  par_m30 <- exp(par_log_m30)
+  par_hsp_q <- exp(par_log_hsp_q)
+  par_tag_H_factor <- exp(par_log_tag_H_factor)
+  rec_h <- invlogit_bnd(par_logit_rec_h, 0.2, 1.0)
+  
+  # Declare variables
+  R0 <- alpha <- beta <- 0
+  ll_penalty <- 0.0
+  number_ysa <- array(0, dim = c(n_year + 1, n_season, n_age))
+  hrate_ysa <- array(0, dim = c(n_year + 1, n_season, n_age))
+  hrate_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
+  catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
+  catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
+  spawning_biomass_y <- rep(0, n_year + 1)
+  
+  S_a <- rep(0, n_age)
+  M_a <- get_M(min_age, max_age, age_increase_M, par_m0, par_m4, par_m10, par_m30, S_a)
+  sel_skel_fa <- get_sel_skeleton(age_a, par_log_sel_skel)
+  sel_fya <- get_selectivity(sel_switch_f, n_year, n_age, max_age, age_a, first_yr, first_yr_catch, first_yr_catch_f, sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy, 
+                             sel_skel_fa, par_log_sel1_ay, par_log_sel2_ay, par_log_sel3_ay, par_log_sel4_ay, par_log_sel5_ay, par_log_sel6_ay)
+  phi_ya <- get_phi(n_year, par_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
+  number_ysa[1, 1, ] <- get_initial_numbers(B0, rec_h, R0, alpha, beta, M_a, phi_ya)
+  spawning_biomass_y[1] <- B0
+  
+  rec_rho <- invlogit(par_logit_rec_rho)
+  rec_sigma <- exp(par_log_rec_sigma)
+  tau_ac2 <- get_rho(first_yr, last_yr, par_rec_dev_y)
+  rdev_y <- par_rec_dev_y
+  lp_rec <- get_recruitment_prior(n_year, par_rec_dev_y, rec_sigma, tau_ac2)
+  
+  for (iy in 1:n_year) {
+    # Season 1
+    if (iy >= (first_yr_catch - first_yr)) {
+      hrate_ysa[iy, 1, ] <- get_harvest_rate(iy, 1, n_fishery, n_age, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, af_sliced_ysfa, catch_pred_fya, catch_pred_ysf, hrate_fya, ll_penalty)
+    }
+    number_ysa[iy, 2, ] <- number_ysa[iy, 1, ] * (1 - hrate_ysa[iy, 1, ]) * S_a
+    # Season 2
+    if (iy >= (first_yr_catch - first_yr)) {
+      hrate_ysa[iy, 2, ] <- get_harvest_rate(iy, 2, n_fishery, n_age, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, af_sliced_ysfa, catch_pred_fya, catch_pred_ysf, hrate_fya, ll_penalty)
+    }
+    for (ia in 2:n_age) {
+      number_ysa[iy + 1, 1, ia] <- number_ysa[iy, 2, ia - 1] * (1 - hrate_ysa[iy, 2, ia - 1]) * S_a[ia - 1]
+    }
+    number_ysa[iy + 1, 1, n_age] <- number_ysa[iy + 1, 1, n_age] + number_ysa[iy, 2, n_age] * (1 - hrate_ysa[iy, 2, n_age]) * S_a[n_age]
+    spawning_biomass_y[iy + 1] <- sum(number_ysa[iy + 1, 1, ] * phi_ya[iy + 1, ])
+    number_ysa[iy + 1, 1, 1] <- get_recruitment(iy + 1, n_year, spawning_biomass_y[iy + 1], B0, alpha, beta, rec_sigma, rec_rho, rdev_y)
+  }
+  
+  # Priors
+  lp_sel <- get_sel_like(sel_switch_f, removal_switch_f, sel_min_age_f, sel_max_age_f, sel_change_year_fy,
+                         par_logit_sel_rhoa_f, par_logit_sel_rhoy_f, par_logit_sel_rhoc_f, par_log_sel_sigma_f,
+                         par_log_sel1_ay, par_log_sel2_ay, par_log_sel3_ay, par_log_sel4_ay, par_log_sel5_ay, par_log_sel6_ay)
+  lp_sel_old <- get_sel_like_old(sel_switch_f, removal_switch_f, n_year, n_age, first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, sel_change_year_fy, sel_change_sd_fy, sel_smooth_sd_f, par_log_sel1_ay, par_log_sel2_ay, par_log_sel3_ay, par_log_sel4_ay, par_log_sel5_ay, par_log_sel6_ay, sel_fya)
+  lp_sigma_r <- 0.0
+  lp_log_psi <- -dnorm(par_log_psi, log(1.75), 0.122, TRUE)
+  lp_m10 <- 0.0
+  lp_h <- -dnorm(par_logit_rec_h, 0.0, 1.8, TRUE)
+  lp_cpue_omega <- 0.0
+  lp_aerial_tau <- 0.0
+  lp_sel_par <- c(
+    -sum(dnorm(par_logit_sel_rhoa_f, 0.0, 1.0, TRUE)),
+    -sum(dnorm(par_logit_sel_rhoy_f, 0.0, 1.0, TRUE)),
+    -sum(dnorm(par_logit_sel_rhoc_f, 0.0, 1.0, TRUE)),
+    -sum(dnorm(par_log_sel_sigma_f, -1.6, 0.7, TRUE))
+  )
+  
+  # Likelihoods
+  af_pred <- matrix(0, n_af, n_age)
+  lf_pred <- matrix(0, n_lf, 25)
+  cpue_pred <- rep(0, n_cpue)
+  cpue_resid <- rep(0, n_cpue)
+  aerial_pred <- rep(0, n_aerial)
+  aerial_resid <- rep(0, n_aerial)
+  troll_pred <- rep(0, n_troll)
+  troll_resid <- rep(0, n_troll)
+  tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
+  tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
+  tag_release_adj <- array(0, dim = c(n_K, n_T, n_I))
+  
+  lp_af <- get_age_like(af_switch, removal_switch_f, n_age, af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, par_log_af_tau, catch_pred_fya, af_pred)
+  lp_lf <- get_length_like(lf_switch, removal_switch_f, lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, par_log_lf_tau, n_age, catch_pred_fya, alk_ysal, lf_pred)
+  lp_cpue <- get_cpue_like(cpue_switch, n_age, cpue_a1, cpue_a2, cpue_years, cpue_obs, par_log_cpue_tau, par_log_cpue_omega, par_log_cpue_q, par_cpue_creep, number_ysa, sel_fya, cpue_pred, cpue_resid)
+  lp_aerial <- get_aerial_survey_like(aerial_switch, aerial_years, aerial_obs, aerial_cv, aerial_cov, par_log_aerial_tau, par_log_aerial_sel, number_ysa, weight_fya, lp_aerial_tau, aerial_pred, aerial_resid)
+  lp_troll <- get_troll_like(troll_switch, troll_years, troll_obs, troll_sd, par_log_troll_tau, number_ysa, troll_pred, troll_resid)
+  lp_tags <- get_tag_like(tag_switch, min_K, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa, tag_release_cta, tag_recap_ctaa, tag_rel_min_age, tag_rel_max_age, tag_recap_max_age, tag_shed_immediate, tag_shed_continuous, tag_rep_rates_ya, par_tag_H_factor, tag_var_factor, tag_pred, tag_resid, tag_release_adj)
+  lp_pop <- get_POP_like_v2(pop_switch, n_age, n_pops, pop_obs, phi_ya, paly, spawning_biomass_y)
+  lp_hsp <- get_HSP_like(hsp_switch, n_year, n_age, n_hsps, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
+  lp_gt <- get_GT_like(gt_switch, n_gt, gt_obs, number_ysa)
+  
+  ll_data <- sum(lp_lf) + sum(lp_af) + sum(lp_cpue) + sum(lp_aerial) + sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt)
+  ll_prior <- lp_aerial_tau + lp_rec + lp_sigma_r + lp_m10 + lp_h + lp_cpue_omega + lp_log_psi + sum(lp_sel_par) + sum(lp_sel)
+  nll <- ll_prior + ll_data + ll_penalty
+  
+  # Report
+  report <- list(
+    lp_sel = lp_sel,
+    lp_sel_old = lp_sel_old,
+    lp_sel_par = lp_sel_par,
+    lp_rec = lp_rec,
+    lp_aerial_tau = lp_aerial_tau,
+    lp_lf = lp_lf,
+    lp_af = lp_af,
+    lp_cpue = lp_cpue,
+    lp_tags = lp_tags,
+    lp_aerial = lp_aerial,
+    lp_troll = lp_troll,
+    lp_pop = lp_pop,
+    lp_hsp = lp_hsp,
+    lp_gt = lp_gt,
+    ll_penalty = ll_penalty,
+    ll_prior = ll_prior,
+    ll_data = ll_data,
+    nll = nll,
+    cpue_pred = cpue_pred,
+    cpue_resid = cpue_resid,
+    aerial_pred = aerial_pred,
+    aerial_resid = aerial_resid,
+    troll_pred = troll_pred,
+    troll_resid = troll_resid,
+    tag_pred = tag_pred,
+    tag_resid = tag_resid,
+    lf_pred = lf_pred,
+    af_pred = af_pred,
+    M_a = M_a,
+    phi_ya = phi_ya,
+    B0 = B0,
+    R0 = R0,
+    alpha = alpha,
+    beta = beta,
+    rec_h = rec_h,
+    rec_rho = rec_rho,
+    tau_ac2 = tau_ac2,
+    tag_release_adj = tag_release_adj,
+    number_ysa = number_ysa,
+    catch_pred_ysf = catch_pred_ysf,
+    catch_pred_fya = catch_pred_fya,
+    sel_skel_fa = sel_skel_fa,
+    sel_fya = sel_fya,
+    hrate_ysa = hrate_ysa,
+    hrate_fya = hrate_fya,
+    spawning_biomass_y = spawning_biomass_y
+  )
+  
+  return(report)
+}
+
+# Example usage
+data <- list(
+  first_yr = 1931,
+  last_yr = 2022,
+  min_age = 0,
+  max_age = 30,
+  age_a = 0:30,
+  age_increase_M = 25,
+  length_m50 = 100,
+  length_m95 = 150,
+  length_mu_ysa = array(rnorm(31 * 92 * 2), dim = c(92, 2, 31)),
+  length_sd_a = rnorm(31),
+  weight_fya = array(rnorm(6 * 92 * 31), dim = c(6, 92, 31)),
+  dl_yal = array(rnorm(92 * 31 * 15), dim = c(92, 31, 15)),
+  alk_ysal = array(rnorm(92 * 2 * 31 * 25), dim = c(92, 2, 31, 25)),
+  first_yr_catch = 1952,
+  first_yr_catch_f = c(1952, 1969, 1954, 1953, 1976, 1952),
+  catch_year = 1952:2022,
+  catch_obs_ysf = array(rnorm(92 * 2 * 6), dim = c(92, 2, 6)),
+  removal_switch_f = c(0, 0, 0, 0, 0, 0),
+  sel_switch_f = c(0, 0, 0, 0, 0, 0),
+  sel_min_age_f = c(1, 1, 1, 1, 1, 1),
+  sel_max_age_f = c(30, 30, 30, 30, 30, 30),
+  sel_end_f = c(1, 1, 1, 1, 1, 1),
+  sel_change_sd_fy = matrix(rnorm(6 * 92), nrow = 6, ncol = 92),
+  sel_smooth_sd_f = rnorm(6),
+  sel_change_year_fy = matrix(rbinom(6 * 92, 1, 0.1), nrow = 6, ncol = 92),
+  n_pops = 100,
+  pop_obs = matrix(rbinom(100 * 5, 1, 0.5), nrow = 100, ncol = 5),
+  paly = array(rnorm(92 * 31 * 25), dim = c(92, 31, 25)),
+  pop_switch = 1,
+  n_gt = 50,
+  gt_obs = matrix(rbinom(50 * 6, 1, 0.5), nrow = 50, ncol = 6),
+  gt_switch = 1,
+  n_hsps = 50,
+  hsp_obs = matrix(rbinom(50 * 6, 1, 0.5), nrow = 50, ncol = 6),
+  hsp_false_negative = 0.1,
+  hsp_switch = 1,
+  aerial_years = 1952:2022,
+  aerial_obs = rnorm(71),
+  aerial_cv = rnorm(71),
+  aerial_cov = matrix(rnorm(71 * 71), nrow = 71, ncol = 71),
+  aerial_switch = 1,
+  troll_years = 1952:2022,
+  troll_obs = rnorm(71),
+  troll_sd = rnorm(71),
+  troll_switch = 1,
+  cpue_years = 1952:2022,
+  cpue_obs = rnorm(71),
+  cpue_a1 = 5,
+  cpue_a2 = 10,
+  cpue_switch = 1,
+  af_year = 1952:2022,
+  af_fishery = rep(1:6, each = 71),
+  af_min_age = rep(1, 426),
+  af_max_age = rep(30, 426),
+  af_obs = matrix(rnorm(426 * 31), nrow = 426, ncol = 31),
+  af_n = rnorm(426),
+  af_switch = 1,
+  lf_year = 1952:2022,
+  lf_season = rep(1:2, each = 71),
+  lf_fishery = rep(1:6, each = 142),
+  lf_minbin = rep(1, 852),
+  lf_obs = matrix(rnorm(852 * 25), nrow = 852, ncol = 25),
+  lf_n = rnorm(852),
+  lf_switch = 1,
+  af_sliced_ysfa = array(rnorm(92 * 2 * 6 * 31), dim = c(92, 2, 6, 31)),
+  min_K = 1989,
+  n_K = 6,
+  n_T = 6,
+  n_I = 3,
+  n_J = 7,
+  tag_release_cta = array(rnorm(6 * 6 * 3), dim = c(6, 6, 3)),
+  tag_recap_ctaa = array(rnorm(6 * 6 * 3 * 7), dim = c(6, 6, 3, 7)),
+  tag_rel_min_age = c(1, 1, 1, 1, 1, 1),
+  tag_rel_max_age = c(30, 30, 30, 30, 30, 30),
+  tag_recap_max_age = c(30, 30, 30, 30, 30, 30),
+  tag_shed_immediate = rnorm(6),
+  tag_shed_continuous = rnorm(6),
+  tag_rep_rates_ya = matrix(rnorm(92 * 31), nrow = 92, ncol = 31),
+  tag_var_factor = 1.0,
+  tag_switch = 1
+)
+
+par <- list(
+  par_log_B0 = log(1000),
+  par_log_psi = log(1.75),
+  par_log_m0 = log(0.1),
+  par_log_m4 = log(0.05),
+  par_log_m10 = log(0.03),
+  par_log_m30 = log(0.02),
+  par_log_cpue_q = log(1.0),
+  par_cpue_creep = 0.0,
+  par_log_cpue_omega = log(0.875),
+  par_log_cpue_tau = log(0.1),
+  par_log_aerial_sel = rnorm(2),
+  par_log_aerial_tau = log(0.1),
+  par_log_troll_tau = log(0.1),
+  par_log_hsp_q = log(1.0),
+  par_log_tag_H_factor = log(1.0),
+  par_log_af_tau = rnorm(6),
+  par_log_lf_tau = rnorm(6),
+  par_logit_sel_rhoa_f = rnorm(6),
+  par_logit_sel_rhoy_f = rnorm(6),
+  par_logit_sel_rhoc_f = rnorm(6),
+  par_log_sel_sigma_f = rnorm(6),
+  par_log_rec_sigma = log(0.1),
+  par_logit_rec_rho = 0.0,
+  par_logit_rec_h = 0.0,
+  par_rec_dev_y = rnorm(92),
+  par_log_sel_skel = matrix(rnorm(6 * 3), nrow = 6, ncol = 3),
+  par_log_sel1_ay = array(rnorm(31 * 92), dim = c(31, 92)),
+  par_log_sel2_ay = array(rnorm(31 * 92), dim = c(31, 92)),
+  par_log_sel3_ay = array(rnorm(31 * 92), dim = c(31, 92)),
+  par_log_sel4_ay = array(rnorm(31 * 92), dim = c(31, 92)),
+  par_log_sel5_ay = array(rnorm(31 * 92), dim = c(31, 92)),
+  par_log_sel6_ay = array(rnorm(31 * 92), dim = c(31, 92))
+)
+
+# Run the model
+report <- objective_function(par, data)
+print(report)
+```
+
+
