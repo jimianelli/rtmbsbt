@@ -421,8 +421,8 @@ get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
   lp <- numeric(n_gt)
   gt_q <- 1  # hardcoded in C++; could be data/parameter if needed
   for (i in seq_len(n_gt)) {
-    yrel <- gt_obs[i, 1]   # release year index (1-based)
-    arel <- gt_obs[i, 2]   # release age index (1-based)
+    yrel <- gt_obs[i, 1] + 1  # release year index (1-based)
+    arel <- gt_obs[i, 2] + 1  # release age index (1-based)
     # yrec <- gt_obs[i, 3] # not used here
     nrel <- gt_obs[i, 4]
     nscan <- gt_obs[i, 5]
