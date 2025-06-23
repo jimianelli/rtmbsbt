@@ -90,13 +90,13 @@ sbt_model <- function(parameters, data) {
     spawning_biomass_y[y + 1] <- sum(number_ysa[y + 1, 1, ] * phi_ya[y + 1,])
     recruitment_y[y + 1] <- get_recruitment(y = y, sbio = spawning_biomass_y[y + 1], B0 = par_B0, alpha, beta, sigma_r = par_sigma_r, rdev_y)
     number_ysa[y + 1, 1, 1] <- recruitment_y[y + 1]
-    # for (f in seq_len(n_fishery)) {
-    #   for (s in seq_len(n_season)) {
-        # catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + F_ysf[y, s, f] * sel_fya[f, y,] * number_ysa[y, s,]
+    for (f in seq_len(n_fishery)) {
+      for (s in seq_len(n_season)) {
+        catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + F_ysf[y, s, f] * sel_fya[f, y,] * number_ysa[y, s,]
         # for (a in seq_len(n_age)) {
         #   catch_pred_ysf[y, s, f] <- catch_pred_ysf[y, s, f] + F_ysf[y, s, f] * sel_fya[f, y, a] * number_ysa[y, s, a] * weight_fya[f, y, a]
-    #   }
-    # }
+      }
+    }
   }
 
   # Likelihoods and priors
@@ -118,7 +118,7 @@ sbt_model <- function(parameters, data) {
   lp_af <- 0
   lp_hsp <- 0
   # lp_lf <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
-  lf_pred <- matrix(0, n_lf, 25)
+  # lf_pred <- matrix(0, n_lf, 25)
   # lp_af <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
   af_pred <- matrix(0, n_af, n_age)
   x <- get_cpue_like(cpue_switch, cpue_a1, cpue_a2, cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, par_log_cpue_q, number_ysa, sel_fya)
