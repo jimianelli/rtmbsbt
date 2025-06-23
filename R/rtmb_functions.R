@@ -336,31 +336,28 @@ get_age_like <- function(af_year, af_season, af_fishery, af_minage, af_obs, af_n
   n_bins <- ncol(af_obs)
   n_age <- dim(catch_pred_fya)[3]
   lp <- numeric(n_af)
-  age_pred <- matrix(0, n_af, n_bins)
+  age_pred <- matrix(0, n_af, n_age)
+  # age_off <- af_n * sum(obs * log(obs))
   
   for (i in seq_len(n_af)) {
     y <- af_year[i]
-    s <- af_season[i]
+    # s <- af_season[i]
     f <- af_fishery[i]
-    minage <- af_minage[i]
-    pred_age <- numeric(n_bins)
-    for (a in seq_len(n_bins)) {
-      pred_age[a] <- catch_pred_fya[f, y, a + minage - 1]
-    }
-    total_pred <- sum(pred_age)
-    if (total_pred > 0) {
-      pred_age <- pred_age / total_pred
-    } else {
-      pred_age <- 1 / n_bins
-    }
-    age_pred[i, ] <- pred_age
-    # Multinomial negative log-likelihood
-    obs <- af_obs[i, ]
-    # Add small value to avoid log(0)
-    pred_age <- pmax(pred_age, 1e-10)
-    lp[i] <- -sum(obs * log(pred_age))
-    # Optionally, you could use full multinomial likelihood:
-    # lp[i] <- - (lgamma(af_n[i] + 1) - sum(lgamma(obs + 1)) + sum(obs * log(pred_age)))
+    amin <- af_min_age[i] + 1
+    amax <- af_max_age[i] + 1
+    obs <- af_obs[i, amin:amax]
+    obs <- obs / sum(obs) + 1e-6
+    pred <- catch_pred_fya[f, y, amin:amax]
+    pred <- pred / sum(pred) + 1e-6
+    # total_pred <- sum(pred_age)
+    # if (total_pred > 0) {
+    #   pred_age <- pred_age / total_pred
+    # } else {
+    #   pred_age <- 1 / n_bins
+    # }
+    # age_pred[i, ] <- pred_age
+    lp[i] <- -af_n[i] * sum(obs * log(pred))
+    lp[i] <- af_n[i] * sum(obs * log(obs))
   }
   return(lp)
 }
@@ -373,7 +370,7 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
   "diag<-" <- ADoverload("diag<-")
   
   n_lf <- nrow(lf_obs)
-  n_bins <- ncol(lf_obs)
+  n_bins <- 25
   n_age <- dim(catch_pred_fya)[3]
   lp <- numeric(n_lf)
   lf_pred <- matrix(0, n_lf, n_bins)
@@ -382,30 +379,23 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
     y <- lf_year[i]
     s <- lf_season[i]
     f <- lf_fishery[i]
-    minbin <- lf_minbin[i]
-    pred_len <- numeric(n_bins)
-    # Predict length freq by summing predicted catch at age * ALK for each bin
-    for (a in seq_len(n_age)) {
-      # for (l in seq_len(n_bins)) {
-        # pred_len[l] <- pred_len[l] + catch_pred_fya[f, y, a] * alk_ysal[y, s, a, l + minbin - 1]
-        pred_len[l] <- pred_len[l] + catch_pred_fya[f, y, a] * alk_ysal[y, s, a,]
-      # }
+    mbin <- lf_minbin[f]
+    catch_a <- catch_pred_fya[f, y,]
+    pred <- catch_a %*% alk_ysal[y, s,, 1:n_bins]
+    pred <- pred[1,] / sum(pred)
+    obs <- lf_obs[i,]
+    if (mbin > 1) {
+      pred[mbin] <- sum(pred[1:mbin])
+      # pred[1:(mbin - 1)] <- 0
+      obs[mbin] <- sum(obs[1:mbin])
+      # obs[1:(mbin - 1)] <- 0
+      obs <- obs[mbin:n_bins]
+      pred <- pred[mbin:n_bins]
     }
-    total_pred <- sum(pred_len)
-    if (total_pred > 0) {
-      pred_len <- pred_len / total_pred
-    } else {
-      pred_len[] <- 1 / n_bins
-    }
-    lf_pred[i, ] <- pred_len
-    # Multinomial log-likelihood
-    obs <- lf_obs[i, ]
-    n <- lf_n[i]
-    # Add small value to avoid log(0)
-    pred_len <- pmax(pred_len, 1e-10)
-    lp[i] <- -sum(obs * log(pred_len))
-    # Optionally, add log multinomial coefficient if modeling full multinomial:
-    # lp[i] <- - (lgamma(n + 1) - sum(lgamma(obs + 1)) + sum(obs * log(pred_len)))
+    # lf_pred[i,] <- pred
+    lp[i] <- -lf_n[i] * sum(obs * log(pred))
+    obs <- obs + 1e-6
+    lp[i] <- lp[i] + lf_n[i] * sum(obs * log(obs))
   }
   return(lp)
 }
