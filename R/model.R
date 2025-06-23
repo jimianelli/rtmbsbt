@@ -65,9 +65,9 @@ sbt_model <- function(parameters, data) {
   
   # Main population loop
   hrate_ysa  <- array(0, dim = c(n_year + 1, n_season, n_age))
-  # F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
-  # catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
-  # catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
+  F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
+  catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
+  catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   fy <- first_yr_catch - first_yr + 1
   n_age1 <- n_age - 1
   
