@@ -170,9 +170,9 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
     # pp <- min(max(pp, 1e-12), 1 - 1e-12) # NEED TO USE THE PENALTY CODE FROM CRA
     # Binomial log-likelihood
     # if (pop_switch > 0 && pp > 0) {
-    if (pp > 0) {
+    #if (pp > 0) {
       lp[i] <- -(nP * log(pp) + (nC - nP) * log(1 - pp))
-    }# else {
+    #}# else {
     #   lp[i] <- -nC * log(1 - pp)
       # }
     # }
