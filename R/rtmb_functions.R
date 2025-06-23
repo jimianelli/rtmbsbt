@@ -4,6 +4,9 @@ get_tag_like <- function(tag_switch, n_K, n_T, n_I, n_J, minK, M_a, hrate_ysa,
                          par_hstar_i, tag_release_cta, tag_recap_ctaa, minI, maxI, maxJ, 
                          shed1, shed2, tag_rep_rates_ya,
                          tag_H_factor, tag_var_factor, tag_offset) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   lp <- 0
   hstar_s1_ya <- matrix(0, nrow = n_K, ncol = n_I)
   ipar <- 1
@@ -107,6 +110,9 @@ get_tag_like <- function(tag_switch, n_K, n_T, n_I, n_J, minK, M_a, hrate_ysa,
 get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aerial_cv, aerial_cov, 
                                    par_aerial_tau, par_log_aerial_sel, number_ysa, weight_fya) {
   
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   n_aerial <- length(aerial_obs)
   aerial_tau2 <- par_aerial_tau^2
   I <- diag(nrow = n_aerial, ncol = n_aerial)
@@ -148,6 +154,9 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
 }
 
 get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   n_pops <- nrow(pop_obs)
   n_age <- ncol(phi_ya)
   lp <- numeric(n_pops)
@@ -174,6 +183,9 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
 get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative, 
                          number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa) {
 
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   n_hsp <- nrow(hsp_obs)
   n_year <- nrow(phi_ya)
   n_age <- ncol(phi_ya)
@@ -233,6 +245,9 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
 
 get_sel_like <- function(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, sel_change_year_fy, sel_change_sd_fy, 
                          sel_smooth_sd_f, par_sels_init_i, par_sels_change_i, sel_fya) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   
   n_fishery <- dim(sel_fya)[1]
   n_year <- dim(sel_fya)[2]
@@ -269,6 +284,9 @@ get_sel_like <- function(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_
 }
 
 get_recruitment_prior <- function(rdev_y, sigma_r, tau_ac2) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   n_year <- length(rdev_y)
   r1 <- rdev_y[1:(n_year - 3)]
   r2 <- rdev_y[(n_year - 2):n_year]
@@ -280,8 +298,12 @@ get_recruitment_prior <- function(rdev_y, sigma_r, tau_ac2) {
 
 
 get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17, 
-                          cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, log_cpue_q, number_ysa, sel_fya) {
-
+                          cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, 
+                          log_cpue_q, number_ysa, sel_fya) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  
   n_cpue <- length(cpue_obs)
   n_age <- dim(sel_fya)[3]
   cpue_log_pred <- numeric(n_cpue)
@@ -306,15 +328,10 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
 }
 
 get_age_like <- function(af_year, af_season, af_fishery, af_minage, af_obs, af_n, catch_pred_fya) {
-  # n_af: number of age frequency samples
-  # af_year, af_season, af_fishery: vectors of indices (1-based)
-  # af_minage: vector, minimum age index for each sample (1-based)
-  # af_obs: matrix [n_af, n_bins] observed proportions/counts
-  # af_n: vector of sample sizes for each sample
-  # n_age: number of ages
-  # catch_pred_fya: [fishery, year, age] array, predicted catch at age (numbers)
-  # age_pred: (optional) matrix to store predicted age frequencies [n_af, n_bins]
-  # Returns: vector of negative log-likelihoods, length n_af
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  
   n_af <- nrow(af_obs)
   n_bins <- ncol(af_obs)
   n_age <- dim(catch_pred_fya)[3]
@@ -350,6 +367,10 @@ get_age_like <- function(af_year, af_season, af_fishery, af_minage, af_obs, af_n
 
 
 get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  
   n_lf <- nrow(lf_obs)
   n_bins <- ncol(lf_obs)
   n_age <- dim(catch_pred_fya)[3]
@@ -389,6 +410,10 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, l
 }
 
 get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, par_troll_tau, number_ysa) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  
   # THIS ALL LOOKS WRONG
   n_troll <- length(troll_obs)
   troll_pred <- troll_resid <- lp <- numeric(n_troll)
@@ -407,11 +432,9 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, par_t
 }
 
 get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
-  # gt_switch: indicator (1=include, 0=exclude)
-  # n_gt: number of GT records (scalar)
-  # gt_obs: matrix, n_gt x 6 (columns: yrel, arel, yrec, nrel, nscan, nrec), 1-based
-  # number_ysa: [year, season, age] array (1-based)
-  # Returns: vector of negative log-likelihoods, length n_gt
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   n_gt <- nrow(gt_obs)
   lp <- numeric(n_gt)
   gt_q <- 1  # hardcoded in C++; could be data/parameter if needed

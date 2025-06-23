@@ -199,6 +199,7 @@ plot_compare(x = 1931:2023, ADMB = lr$Recruitment / 1e6,
 plot(lr$Recruitment)
 lines(rp$recruitment_y)
 
+n_year <- data$n_year
 rdev_y <- parameters$par_rdev_y
 n_year2 <- n_year - 2
 for (y in n_year2:n_year) rdev_y[y] <- lr$AC_penalty[2] * parameters$par_rdev_y[y - 1] + parameters$par_rdev_y[y]
