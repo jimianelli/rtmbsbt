@@ -112,11 +112,7 @@ sbt_model <- function(parameters, data) {
 
   # Data likelihoods
   
-  lp_lf <- 0
-  lp_af <- 0
   lp_tags <- 0
-  lp_af <- 0
-  lp_hsp <- 0
   lp_lf <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
                            lf_n, catch_pred_fya, alk_ysal)
   # lf_pred <- matrix(0, n_lf, 25)
@@ -139,16 +135,13 @@ sbt_model <- function(parameters, data) {
   #                         par_tag_H_factor, tag_var_factor, tag_offset)
   # tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
   # tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
-  lp_pop <- 0
   lp_pop <- get_POP_like(pop_switch, pop_obs, phi_ya, spawning_biomass_y)
-  # lp_hsp <- get_HSP_like(hsp_switch, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
-  lp_gt <- 0
+  lp_hsp <- get_HSP_like(hsp_switch, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
   lp_gt <- get_GT_like(gt_switch, gt_obs, number_ysa)
 
   nll <- sum(lp_sel) + lp_rec + lp_hstar + lp_m10 + lp_h + lp_cpue_omega +
          sum(lp_lf) + sum(lp_af) + sum(lp_cpue) + lp_aerial_tau + sum(lp_aerial) +
          sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt)
-  # nll <- 0
 
   # Reporting
   

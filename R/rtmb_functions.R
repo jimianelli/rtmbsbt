@@ -180,30 +180,36 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
   return(lp)
 }
 
+
+
 get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative, 
                          number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa) {
-
+  
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
+  
   n_hsp <- nrow(hsp_obs)
   n_year <- nrow(phi_ya)
   n_age <- ncol(phi_ya)
   lp <- numeric(n_hsp)
-  
+  # Calculate the relative age distribution in the adults for each year and age
+  gamx_ya <- matrix(0, nrow = n_year, ncol = n_age)
+  for (y in seq_len(n_year)) {
+    # Use season 2 for numbers-at-age of adults
+    gamx_ya[y,] <- number_ysa[y, 2,] * phi_ya[y,] / spawning_biomass_y[y]
+  }
   for (i in seq_len(n_hsp)) {
-    c1 <- hsp_obs[i, 1]
-    c2 <- hsp_obs[i, 2]
+    cmin <- hsp_obs[i, 1] + 1
+    cmax <- hsp_obs[i, 2] + 1
     cdif <- hsp_obs[i, 3]
     nC <- hsp_obs[i, 4]
     nK <- hsp_obs[i, 5]
-    cmin <- min(c1, c2)
-    cmax <- max(c1, c2)
     xtmp <- 0
     for (a in seq_len(n_age)) {
-      # Cumulative survival between c1 and c2 given reference adult age
+      # Step 2: calculate cumulative survival between c1 and c2 given reference adult age
       cumS <- 1
-      if ((a + cdif) <= n_age) {
+      if ((a + cdif) < n_age) {
         for (ia in seq_len(cdif)) {
           age_idx <- a + ia - 1
           year_idx <- cmin + ia - 1
@@ -213,32 +219,37 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
         for (ia in seq_len(cdif)) {
           age_idx <- a + ia - 1
           year_idx <- cmin + ia - 1
-          idx <- if (age_idx <= n_age) age_idx else n_age
+          idx <- if (age_idx < n_age) age_idx else n_age
           cumS <- cumS * exp(-M_a[idx]) * (1 - hrate_ysa[year_idx, 1, idx]) * (1 - hrate_ysa[year_idx, 2, idx])
         }
       }
-      # Effective increase in RO-at-age
+      # Step 3: effective increase in RO-at-age
       if ((a + cdif) <= n_age) {
         phi_val <- phi_ya[cmax, a + cdif]
       } else {
         phi_val <- phi_ya[cmax, n_age]
       }
-      xtmp <- xtmp + number_ysa[cmin, 2, a] * phi_ya[cmin, a] / spawning_biomass_y[cmin] * cumS * phi_val
+      # Step 4: integration
+      xtmp <- xtmp + gamx_ya[cmin, a] * cumS * phi_val
     }
     pp <- 4 * hsp_q * xtmp / spawning_biomass_y[cmax]
     phsp <- pp * hsp_false_negative
     
     # Likelihood calculation
-    if (hsp_switch > 0 && phsp > 0) {
-      if (nK > 0) {
+    # if (hsp_switch > 0 && phsp > 0) {
+      # if (nK > 0) {
         lp[i] <- -(nK * log(phsp) + (nC - nK) * log(1 - phsp))
-      } else {
-        lp[i] <- -nC * log(1 - phsp)
-      }
-    } else {
-      lp[i] <- 0
-    }
+      # } else {
+      #   lp[i] <- -nC * log(1 - phsp)
+      # }
+    # } else {
+    #   lp[i] <- 0
+    # }
   }
+  
+  # 2198.84
+  # sum(lp)
+  
   return(lp)
 }
 
