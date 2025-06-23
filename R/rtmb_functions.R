@@ -1,29 +1,36 @@
 
 
-get_tag_like <- function(tag_switch, min_K, n_K, n_T, n_I, n_J, 
+get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
                          first_yr, M_a, hrate_ysa, 
                          par_hstar_i, tag_release_cta, tag_recap_ctaa, 
                          minI, maxI, maxJ, 
                          shed1, shed2, tag_rep_rates_ya,
                          tag_H_factor, tag_var_factor, tag_offset) {
   
-  # tag_switch, min_K, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa
-  par_hstar_i
-  tag_release_cta
-  tag_recap_ctaa
-  minI = tag_rel_min_age
-  maxI = tag_rel_max_age
-  maxJ = tag_recap_max_age
-  shed1 = tag_shed_immediate
-  shed2 = tag_shed_continuous
-  tag_rep_rates_ya
-  tag_H_factor = par_tag_H_factor
-  tag_var_factor
-  tag_offset
-  
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
+  
+  # tag_switch, minK, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa
+  # par_hstar_i
+  # tag_release_cta <- tag_release_cta + 1
+  # tag_recap_ctaa <- tag_recap_ctaa + 1
+  # minI = tag_rel_min_age + 1
+  # maxI = tag_rel_max_age + 1
+  # maxJ = tag_recap_max_age + 1
+  # shed1 = tag_shed_immediate
+  # shed2 = tag_shed_continuous
+  # tag_rep_rates_ya
+  # tag_H_factor = par_tag_H_factor
+  # tag_var_factor
+  # tag_offset
+  # minK=min_K
+  # n_I=n_I+1
+  # n_K=n_K+1
+  # n_T=n_T+1
+  # n_J=n_J+1
+  
+  
   lp <- 0
   hstar_s1_ya <- matrix(0, nrow = n_K, ncol = n_I)
   ipar <- 1
@@ -86,7 +93,7 @@ get_tag_like <- function(tag_switch, min_K, n_K, n_T, n_I, n_J,
       for (i in minI[k]:maxI[k]) {
         for (j in minI[k]:maxJ[k]) {
           tag_pred[k, t, i, j] <- tag_release_cta[k, t, i] * prR[k, t, i, j]
-          tag_resid[k, t, i, j] <- (tag_recap_ctaa[k, t, i, j] - tag_pred[k, t, i, j]) /
+          tag_resid[k, t, i, j] <- (tag_recap_ctaa[k, t, i, j] - tag_pred[k, t, i, j]) / 
             sqrt(1e-5 + tag_var_factor * tag_pred[k, t, i, j] * (1 - prR[k, t, i, j]))
         }
       }
@@ -104,8 +111,7 @@ get_tag_like <- function(tag_switch, min_K, n_K, n_T, n_I, n_J,
           if (tag_od < 0) tag_od <- 0.001
           lp <- lp + lgamma(tag_od) - lgamma(tag_release_cta[k, t, i] + tag_od)
           for (j in i:maxJ[k]) {
-            lp <- lp + lgamma(tag_recap_ctaa[k, t, i, j] + tag_od * prR[k, t, i, j]) -
-              lgamma(tag_od * prR[k, t, i, j])
+            lp <- lp + lgamma(tag_recap_ctaa[k, t, i, j] + tag_od * prR[k, t, i, j]) - lgamma(tag_od * prR[k, t, i, j])
             totR <- totR + tag_recap_ctaa[k, t, i, j]
             totprR <- totprR + prR[k, t, i, j]
           }
@@ -120,7 +126,9 @@ get_tag_like <- function(tag_switch, min_K, n_K, n_T, n_I, n_J,
     lp <- 0
   }
   
-  # Returns negative log-likelihood as a vector of length 1
+  # sum(lp)
+  # 176.553
+  
   return(lp)
 }
 
@@ -415,26 +423,32 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
   return(lp)
 }
 
-get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, par_troll_tau, number_ysa) {
+get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll_tau, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
   
-  # THIS ALL LOOKS WRONG
-  n_troll <- length(troll_obs)
-  troll_pred <- troll_resid <- lp <- numeric(n_troll)
+  n_troll <- length(troll_years)
+  troll_sd2 <- troll_sd^2 + troll_tau^2
+  pred <- lp <- numeric(n_troll)
   for (i in seq_len(n_troll)) {
-    y <- troll_years[i]
-    pred <- log(number_ysa[y, 1, 2]) + par_troll_tau
-    troll_pred[i] <- pred
-    troll_resid[i] <- troll_obs[i] - pred
-    lp[i] <- 0.5 * (troll_resid[i]^2 / (troll_sd[i]^2)) + log(troll_sd[i]) + 0.5 * log(2 * pi)
+    iy <- troll_years[i]
+    pred[i] <- number_ysa[iy, 1, 2]
   }
-  if (troll_switch > 0) {
-    return(lp)
-  } else {
-    return(rep(0, n_troll))
-  }
+  troll_q <- sum(pred * (troll_obs / troll_sd2)) / sum(pred * (pred / troll_sd2))
+  pred <- pred * troll_q
+  troll_sig <- sqrt(troll_sd2)
+  troll_res <- (troll_obs - pred) / troll_sig
+  lp <- log(troll_sig) + 0.5 * troll_res^2
+  # troll_pred <- pred
+  # troll_resid <- troll_obs - pred
+  # if (troll_switch > 0) {
+  #   for (i in seq_len(n_troll)) {
+    # }
+  # } else {
+  #   lp[] <- 0
+  # }
+  return(lp)
 }
 
 get_GT_like <- function(gt_switch, gt_obs, number_ysa) {

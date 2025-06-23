@@ -112,7 +112,6 @@ sbt_model <- function(parameters, data) {
 
   # Data likelihoods
   
-  lp_tags <- 0
   lp_lf <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
                            lf_n, catch_pred_fya, alk_ysal)
   # lf_pred <- matrix(0, n_lf, 25)
@@ -128,13 +127,18 @@ sbt_model <- function(parameters, data) {
   aerial_resid <- x$resid
   lp_aerial_tau <- x$lp_aerial_tau
   lp_troll <- get_troll_like(troll_switch, troll_years, troll_obs, troll_sd, par_troll_tau, number_ysa)
-  lp_troll <- 0
-  lp_tags <- get_tag_like(tag_switch, min_K, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa,
-                          par_hstar_i, tag_release_cta, tag_recap_ctaa, 
-                          minI = tag_rel_min_age, maxI = tag_rel_max_age, maxJ = tag_recap_max_age,
-                          shed1 = tag_shed_immediate, shed2 = tag_shed_continuous, 
+  lp_tags <- get_tag_like(tag_switch, min_K + 1, n_K, n_T, n_I, n_J, 
+                          first_yr, M_a, hrate_ysa,
+                          par_hstar_i, tag_release_cta + 1, tag_recap_ctaa + 1,
+                          minI = tag_rel_min_age + 1, 
+                          maxI = tag_rel_max_age + 1, 
+                          maxJ = tag_recap_max_age + 1,
+                          shed1 = tag_shed_immediate, shed2 = tag_shed_continuous,
                           tag_rep_rates_ya,
                           tag_H_factor = par_tag_H_factor, tag_var_factor, tag_offset)
+  sum(lp_tags)
+  176.553
+  lp_tags <- 0
   # tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
   # tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
   lp_pop <- get_POP_like(pop_switch, pop_obs, phi_ya, spawning_biomass_y)
