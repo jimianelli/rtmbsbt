@@ -449,10 +449,12 @@ get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y) {
   return(rec)
 }
 
+
 get_harvest_rate <- function(y, s, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
+  
   n_fishery <- dim(sel_fya)[1]
   n_year <- dim(sel_fya)[2]
   n_age <- dim(sel_fya)[3]
@@ -467,24 +469,13 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, catch_obs_ysf, numb
       h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
     }
   }
-  
   # kap <- 100
   # for (a in seq_len(n_age)) {
   #   if (h_rate_a[a] > 0.9) {
   #     h_rate_a[a] <- 0.9
   #   }
   # }
-  n_season <- 2
-  catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
-  catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
-  for (f in seq_len(n_fishery)) {
-    for (a in seq_len(n_age)) {
-      catch_pred_fya[f, y, a] <- catch_pred_fya[f, y, a] + F_f[f] * sel_fya[f, y, a] * number_ysa[y, s, a]
-      catch_pred_ysf[y, s, f] <- catch_pred_ysf[y, s, f] + F_f[f] * sel_fya[f, y, a] * number_ysa[y, s, a] * weight_fya[f, y, a]
-    }
-  }
-  
-  return(list(h_rate_a = h_rate_a, catch_pred_fya = catch_pred_fya, catch_pred_ysf = catch_pred_ysf))
+  return(list(h_rate_a = h_rate_a, F_f = F_f))
 }
 
 get_rho <- function(first_yr, last_yr, rdev) {

@@ -65,6 +65,7 @@ sbt_model <- function(parameters, data) {
   
   # Main population loop
   hrate_ysa  <- array(0, dim = c(n_year + 1, n_season, n_age))
+  F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
   catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   fy <- first_yr_catch - first_yr + 1
@@ -75,18 +76,30 @@ sbt_model <- function(parameters, data) {
     if (y >= fy) {
       hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
       hrate_ysa[y,1,] <- hr$h_rate_a
+      F_ysf[y,1,] <- hr$F_f
     }
     number_ysa[y,2,] <- number_ysa[y,1,] * (1 - hrate_ysa[y,1,]) * S_a
     # Season 2
     if (y >= fy) {
       hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
       hrate_ysa[y,2,] <- hr$h_rate_a
+      F_ysf[y,2,] <- hr$F_f
     }
     number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
     number_ysa[y + 1, 1, n_age] <- number_ysa[y + 1, 1, n_age] + (number_ysa[y, 2, n_age] * (1 - hrate_ysa[y, 2, n_age]) * S_a[n_age])
     spawning_biomass_y[y + 1] <- sum(number_ysa[y + 1, 1, ] * phi_ya[y + 1,])
     recruitment_y[y + 1] <- get_recruitment(y = y, sbio = spawning_biomass_y[y + 1], B0 = par_B0, alpha, beta, sigma_r = par_sigma_r, rdev_y)
     number_ysa[y + 1, 1, 1] <- recruitment_y[y + 1]
+    
+    
+    # for (f in seq_len(n_fishery)) {
+    #   catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + F_ysf[y, s, f] * sel_fya[f, y,] * number_ysa[y, s,]
+    #   for (a in seq_len(n_age)) {
+    #     catch_pred_ysf[y, s, f] <- catch_pred_ysf[y, s, f] + F_ysf[y, s, f] * sel_fya[f, y, a] * number_ysa[y, s, a] * weight_fya[f, y, a]
+    #   }
+    # }
+    
+
   }
 
   # Likelihoods and priors
