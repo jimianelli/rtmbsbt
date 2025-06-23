@@ -76,14 +76,14 @@ sbt_model <- function(parameters, data) {
     if (y >= fy) {
       hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
       hrate_ysa[y,1,] <- hr$h_rate_a
-      # F_ysf[y,1,] <- hr$F_f
+      F_ysf[y,1,] <- hr$F_f
     }
     number_ysa[y,2,] <- number_ysa[y,1,] * (1 - hrate_ysa[y,1,]) * S_a
     # Season 2
     if (y >= fy) {
       hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
       hrate_ysa[y,2,] <- hr$h_rate_a
-      # F_ysf[y,2,] <- hr$F_f
+      F_ysf[y,2,] <- hr$F_f
     }
     number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
     number_ysa[y + 1, 1, n_age] <- number_ysa[y + 1, 1, n_age] + (number_ysa[y, 2, n_age] * (1 - hrate_ysa[y, 2, n_age]) * S_a[n_age])
@@ -117,9 +117,10 @@ sbt_model <- function(parameters, data) {
   lp_tags <- 0
   lp_af <- 0
   lp_hsp <- 0
-  # lp_lf <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
+  lp_lf <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
+                           lf_n, catch_pred_fya, alk_ysal)
   # lf_pred <- matrix(0, n_lf, 25)
-  # lp_af <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
+  lp_af <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
   af_pred <- matrix(0, n_af, n_age)
   x <- get_cpue_like(cpue_switch, cpue_a1, cpue_a2, cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, par_log_cpue_q, number_ysa, sel_fya)
   lp_cpue <- x$lp

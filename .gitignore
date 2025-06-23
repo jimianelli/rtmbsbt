@@ -2,3 +2,46 @@
 .Rhistory
 .RData
 .Ruserdata
+.Rproj*
+*.Rproj*
+# RStudio specific
+.Rproj.user/
+*.Rproj
+
+# History files
+.Rhistory
+.RData
+.Ruserdata
+
+# Output, logs, and temporary files
+*.log
+*.out
+*.pdf
+*.html
+*.docx
+*.xlsx
+*.tmp
+*.swp
+*.bak
+
+# R package build artifacts
+.Rcheck/
+.Rbuildignore
+*.tar.gz
+
+# Quarto / RMarkdown render artifacts
+*_cache/
+_cache/
+*.utf8.md
+*.knit.md
+
+# Renv or packrat (if applicable)
+renv/library/
+renv/python/
+renv/staging/
+packrat/
+packrat.lock
+
+# OS-specific
+.DS_Store
+Thumbs.db
