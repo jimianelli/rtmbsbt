@@ -327,37 +327,28 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
   return(list(pred = cpue_pred, resid = cpue_resid, lp = lp))
 }
 
-get_age_like <- function(af_year, af_season, af_fishery, af_minage, af_obs, af_n, catch_pred_fya) {
+get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  
   n_af <- nrow(af_obs)
-  n_bins <- ncol(af_obs)
   n_age <- dim(catch_pred_fya)[3]
   lp <- numeric(n_af)
   age_pred <- matrix(0, n_af, n_age)
-  # age_off <- af_n * sum(obs * log(obs))
-  
   for (i in seq_len(n_af)) {
-    y <- af_year[i]
-    # s <- af_season[i]
     f <- af_fishery[i]
+    y <- af_year[i]
     amin <- af_min_age[i] + 1
     amax <- af_max_age[i] + 1
+    n_a <- amax - amin + 1
     obs <- af_obs[i, amin:amax]
-    obs <- obs / sum(obs) + 1e-6
+    obs <- (obs / sum(obs)) + 1e-6
     pred <- catch_pred_fya[f, y, amin:amax]
-    pred <- pred / sum(pred) + 1e-6
-    # total_pred <- sum(pred_age)
-    # if (total_pred > 0) {
-    #   pred_age <- pred_age / total_pred
-    # } else {
-    #   pred_age <- 1 / n_bins
-    # }
-    # age_pred[i, ] <- pred_age
+    pred[1] <- sum(catch_pred_fya[f, y, 1:amin])
+    pred[n_a] <- sum(catch_pred_fya[f, y, amax:n_age])
+    pred <- (pred / sum(pred)) + 1e-6
     lp[i] <- -af_n[i] * sum(obs * log(pred))
-    lp[i] <- af_n[i] * sum(obs * log(obs))
+    lp[i] <- lp[i] + af_n[i] * sum(obs * log(obs))
   }
   return(lp)
 }
