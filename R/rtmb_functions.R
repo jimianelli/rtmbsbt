@@ -1,9 +1,26 @@
 
 
-get_tag_like <- function(tag_switch, n_K, n_T, n_I, n_J, minK, M_a, hrate_ysa, 
-                         par_hstar_i, tag_release_cta, tag_recap_ctaa, minI, maxI, maxJ, 
+get_tag_like <- function(tag_switch, min_K, n_K, n_T, n_I, n_J, 
+                         first_yr, M_a, hrate_ysa, 
+                         par_hstar_i, tag_release_cta, tag_recap_ctaa, 
+                         minI, maxI, maxJ, 
                          shed1, shed2, tag_rep_rates_ya,
                          tag_H_factor, tag_var_factor, tag_offset) {
+  
+  # tag_switch, min_K, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa
+  par_hstar_i
+  tag_release_cta
+  tag_recap_ctaa
+  minI = tag_rel_min_age
+  maxI = tag_rel_max_age
+  maxJ = tag_recap_max_age
+  shed1 = tag_shed_immediate
+  shed2 = tag_shed_continuous
+  tag_rep_rates_ya
+  tag_H_factor = par_tag_H_factor
+  tag_var_factor
+  tag_offset
+  
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
@@ -246,10 +263,6 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
     #   lp[i] <- 0
     # }
   }
-  
-  # 2198.84
-  # sum(lp)
-  
   return(lp)
 }
 
