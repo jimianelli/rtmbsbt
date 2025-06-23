@@ -364,9 +364,10 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, l
     pred_len <- numeric(n_bins)
     # Predict length freq by summing predicted catch at age * ALK for each bin
     for (a in seq_len(n_age)) {
-      for (l in seq_len(n_bins)) {
-        pred_len[l] <- pred_len[l] + catch_pred_fya[f, y, a] * alk_ysal[y, s, a, l + minbin - 1]
-      }
+      # for (l in seq_len(n_bins)) {
+        # pred_len[l] <- pred_len[l] + catch_pred_fya[f, y, a] * alk_ysal[y, s, a, l + minbin - 1]
+        pred_len[l] <- pred_len[l] + catch_pred_fya[f, y, a] * alk_ysal[y, s, a,]
+      # }
     }
     total_pred <- sum(pred_len)
     if (total_pred > 0) {
@@ -452,13 +453,6 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, catch_obs_ysf, numb
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  # y: integer index for year (1-based)
-  # s: integer index for season (1-based)
-  # catch_obs_ysf: [year, season, fishery] array (1-based)
-  # number_ysa: [year, season, age] array (1-based)
-  # sel_fya: [fishery, year, age] array (1-based)
-  # weight_fya: [fishery, year, age] array (1-based)
-  # Returns: h_rate_a (length n_age vector)
   n_fishery <- dim(sel_fya)[1]
   n_year <- dim(sel_fya)[2]
   n_age <- dim(sel_fya)[3]
@@ -468,15 +462,9 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, catch_obs_ysf, numb
   
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
-      Nsum <- 0
-      for (a in seq_len(n_age)) {
-        Nsum <- Nsum + number_ysa[y, s, a] * sel_fya[f, y, a] * weight_fya[f, y, a]
-      }
-      F_f[f] <- catch_obs_ysf[yy, s, f] / (1e-6 + Nsum)
-      # h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
-      for (a in seq_len(n_age)) {
-        h_rate_a[a] <- h_rate_a[a] + F_f[f] * sel_fya[f, y, a]
-      }
+      Nsum <- 1e-6 + sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,])
+      F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
+      h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
     }
   }
   
