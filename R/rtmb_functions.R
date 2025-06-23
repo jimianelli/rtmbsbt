@@ -624,7 +624,9 @@ get_phi <- function(psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_
         phi_a[ia] <- phi_a[ia] + dl_yal[iy, ia, il] * phil
       }
     }
-    phi_ya[iy,] <- phi_a / max(phi_a)
+    #phi_ya[iy,] <- phi_a / max(phi_a)
+    phi_ya[iy,] <- phi_a / phi_a[n_age] # don't use max/monotonically inc. fn.
+ 
   }
   phi_ya[n_year + 1,] <- phi_ya[n_year,]
   return(phi_ya)
