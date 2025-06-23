@@ -1,0 +1,444 @@
+---
+title: "Comparison with the ADMB model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Comparison with the ADMB model}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r include=FALSE}
+library(knitr)
+opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r echo=FALSE, message=FALSE, results="hide"}
+library(RTMB)
+library(TMBhelper)
+library(reshape2)
+library(tidyverse)
+library(sbt)
+library(kableExtra)
+library(testthat)
+
+theme_set(theme_bw())
+
+attach(data_csv1)
+lr <- data_labrep1
+
+data <- list(
+  last_yr = 2022, age_increase_M = 25,
+  length_m50 = 150, length_m95 = 180, 
+  catch_UR_on = 0, catch_surf_case = 1, catch_LL1_case = 1, 
+  scenarios_surf = scenarios_surface, scenarios_LL1 = scenarios_LL1,
+  sel_min_age_f = c(2, 2, 2, 8, 6, 0), 
+  sel_max_age_f = c(17, 9, 17, 22, 25, 7),
+  sel_end_f = c(1, 0, 1, 1, 1, 0),
+  sel_change_sd_fy = t(as.matrix(sel_change_sd[,-1])), 
+  sel_smooth_sd_f = lr$sel.smooth.sd,
+  pop_switch = 1, 
+  hsp_switch = 1, hsp_false_negative = 0.7467647, 
+  gt_switch = 1,
+  cpue_switch = 1, cpue_a1 = 5, cpue_a2 = 17,
+  aerial_switch = 4, aerial_tau = data_labrep1$tau.aerial, 
+  troll_switch = 1, 
+  lf_minbin = c(1, 1, 1, 11),
+  tag_switch = 1, tag_var_factor = 1.82
+)
+
+data <- get_data_old(data_in = data)
+data$cpue_years <- data$cpue_years + 1
+data$aerial_years <- data$aerial_years + 1
+data$troll_years <- data$troll_years + 1
+data$af_year <- data$af_year + 1
+data$lf_year <- data$lf_year + 1
+data$pop_obs[,1] <- data$pop_obs[,1] + 1
+
+parameters <- list(
+  par_log_B0 = data_par1$ln_B0,
+  par_log_psi = log(data_par1$psi),
+  par_log_m0 = log(data_par1$m0), 
+  par_log_m4 = log(data_par1$m4),
+  par_log_m10 = log(data_par1$m10), 
+  par_log_m30 = log(data_par1$m30),
+  par_log_h = log(data_par1$steep), 
+  par_log_sigma_r = log(lr$sigma.r), 
+  par_rdev_y = data_par1$Reps,
+  par_sels_init_i = data_par1$par_sels_init_i, 
+  par_sels_change_i = data_par1$par_sels_change_i,
+  par_log_cpue_q = data_par1$lnq,
+  par_log_cpue_sigma = log(data_par1$sigma_cpue),
+  par_log_cpue_omega = log(data_par1$cpue_omega),
+  par_log_aerial_tau = log(data_par1$tau_aerial),
+  par_log_aerial_sel = data_par1$ln_sel_aerial,
+  par_log_troll_tau = log(data_par1$tau_troll),
+  par_log_hsp_q = data_par1$lnqhsp, 
+  par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
+  par_log_tag_H_factor = log(data_par1$tag_H_factor)
+)
+
+map <- list()
+```
+
+```{r echo=FALSE, message=FALSE, results="hide"}
+# sbt_src <- "../src"
+# compile(file.path(sbt_src, "sbt_v1.cpp"))
+# dyn.load(dynlib(file.path(sbt_src, "sbt_v1")))
+# obj <- MakeADFun(data = data, parameters = Params, DLL = "sbt_v1")
+source("../R/model.R")
+source("../R/rtmb_functions.R")
+obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
+rp <- obj$report()
+# note that when catch and rec devs are all set to zero the SSB is not flat.
+```
+
+# Introduction
+
+This vignette compares outputs from the ADMB model to the TMB model compiled 
+within the `sbt` package. This is done using a fixed parameter run and then by 
+optimising. In the fixed parameter run the parameter values from a single cell 
+of the ADMB model are used as fixed value inputs to `sbt` and outputs from `sbt` 
+are generated.
+
+# Fixed parameter run
+
+## Comparison table
+
+The table below includes transformed parameters (i.e., in natural space), 
+derived quantities, priors, 
+penalties, likelihoods, and objective function values for the ADMB model, the TMB 
+model, and the difference and percent difference between the two models:
+
+```{r echo=FALSE, message=FALSE}
+Label <- c("B0", "psi", "sigmaR", "h", "q HSP", "m0", "m4", "m10", "m30", "R0", "alpha", "beta", "tau_ac2")
+
+df0 <- data.frame(
+  Label = Label,
+  ADMB = c(lr$B0, lr$psi, lr$sigma.r, lr$steep, lr$qhsp, lr$M[c(1, 5, 11, 31)], lr$R0[1], lr$alpha[1], lr$beta[1], lr$AC_penalty[2]),
+  TMB = c(rp$par_B0, rp$par_psi, rp$par_sigma_r, rp$par_h, rp$par_hsp_q, rp$par_m0, rp$par_m4, rp$par_m10, rp$par_m30, rp$R0, rp$alpha, rp$beta, rp$tau_ac2)) %>%
+  mutate(diff1 = ADMB - TMB) %>%
+  mutate(diff2 = abs(diff1 / ADMB) * 100) %>%
+  mutate(diff2 = ifelse(is.finite(diff2), diff2, 0))
+
+Label <- names(lr$penal)
+Label[13] <- "sel.init"
+
+df1 <- data.frame(
+  Label = Label,
+  ADMB = lr$penal,
+  TMB = c(0, rp$lp_sel[1:2], rp$lp_rec, 0, 0, 0, 0, 0, 0, 0, 0, rp$lp_sel[3], rp$lp_hstar)) %>%
+  mutate(diff1 = ADMB - TMB) %>%
+  mutate(diff2 = abs(diff1 / ADMB) * 100) %>%
+  mutate(diff2 = ifelse(is.finite(diff2), diff2, 0)) %>%
+  filter(Label != "NA")
+
+lp_lf <- data.frame(lp = rp$lp_lf, fishery = data$lf_fishery) %>%
+  group_by(fishery) %>%
+  summarise(lp = sum(lp))
+
+lp_af <- data.frame(lp = rp$lp_af, fishery = data$af_fishery) %>%
+  group_by(fishery) %>%
+  summarise(lp = sum(lp))
+
+df2 <- data.frame(
+  Label = c(names(lr$lnlike), "ObjF"),
+  ADMB = c(as.numeric(lr$lnlike), lr$ObjF),
+  TMB = c(lp_lf$lp, lp_af$lp, sum(rp$lp_cpue), sum(rp$lp_tags), sum(rp$lp_aerial) + rp$lp_aerial_tau, sum(rp$lp_troll), sum(rp$lp_pop), sum(rp$lp_hsp), sum(rp$lp_gt), rp$nll)) %>%
+  mutate(diff1 = ADMB - TMB) %>%
+  mutate(diff2 = abs(diff1 / ADMB) * 100) %>%
+  mutate(diff2 = ifelse(is.finite(diff2), diff2, 0))
+
+df <- bind_rows(df0, df1, df2) 
+
+kbl(df, col.names = c("", "ADMB", "RTMB", "Difference", "Percent difference"), caption = NULL, digits = c(7, 7, 7, 7, 4)) %>%
+  kable_styling("bordered") %>%
+  column_spec(column = 5, color = "white", background = spec_color(df$diff2)) %>%
+  group_rows("Parameters", 1, 9) %>%
+  group_rows("Derived quantities", 10, 13) %>%
+  group_rows("Priors & penalties", 14, 24) %>%
+  group_rows("Likelihoods & objective function", 25, nrow(df))
+```
+
+## Comparison figures
+
+The following figures compare outputs from the ADMB and TMB models:
+
+```{r echo=FALSE, message=FALSE}
+plot_compare <- function(x, ADMB, sbt, xlab, ylab) {
+  data.frame(x = x, ADMB = ADMB, sbt = sbt) %>%
+    pivot_longer(cols = ADMB:sbt, names_to = "Model") %>%
+    ggplot(aes(x = x, y = value, colour = Model, linetype = Model)) +
+    geom_line() + 
+    labs(x = xlab, y = ylab) +
+    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+}
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Average weight (kg) at age."}
+plot_compare(x = 0:30, ADMB = lr$spweights.age[1,], sbt = data$weight_fya[3,1,], 
+             xlab = "Age", ylab = "Weight (kg)")
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Natural mortality (M) at age."}
+plot_compare(x = 0:30, ADMB = lr$M, sbt = rp$M_a, 
+             xlab = "Age", ylab = "Natural mortality (M)")
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Initial numbers at age in the population."}
+num <- rp$number_ysa
+plot_compare(x = 0:30, ADMB = lr$Ns[1,] / 1e6, sbt = num[1,1,] / 1e6, 
+             xlab = "Age", ylab = "Initial numbers (millions)")
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Recruitment each year."}
+plot_compare(x = 1931:2023, ADMB = lr$Recruitment / 1e6, 
+             sbt = rp$recruitment_y / 1e6,
+             # sbt = num[,1,1] / 1e6,
+             xlab = "Year", ylab = "Recruitment (million)")
+
+plot(lr$Recruitment)
+lines(rp$recruitment_y)
+
+rdev_y <- parameters$par_rdev_y
+n_year2 <- n_year - 2
+for (y in n_year2:n_year) rdev_y[y] <- lr$AC_penalty[2] * parameters$par_rdev_y[y - 1] + parameters$par_rdev_y[y]
+n_year1 <- n_year - 1
+for (y in n_year1) rdev_y[y] <- 1.4 * parameters$par_rdev_y[y - 1] + parameters$par_rdev_y[y]
+for (y in n_year) rdev_y[y] <- parameters$par_rdev_y[y]
+plot(lr$Rdev, xlim = c(85, n_year))
+lines(rdev_y, col = 2)
+
+plot(lr$Reps)
+lines(parameters$par_rdev_y)
+
+# plot(lr$Rdev, xlim = c(85, n_year))
+plot(lr$Rdev)
+lines(rp$rdev_y)
+
+plot(lr$Recruitment)
+lines(rp$recruitment_y)
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Total number of inidividuals each year."}
+plot_compare(x = 1931:2023, 
+             ADMB = rowSums(lr$Ns), sbt = rowSums(num[,1,]), 
+             xlab = "Year", ylab = "Total number")
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Spawning biomass (tonnes)."}
+plot_compare(x = 1931:2023, ADMB = lr$Sbio / 1e6, sbt = rp$spawning_biomass_y / 1e6, 
+             xlab = "Year", ylab = "Spawning biomass (millions of tonnes)")
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Catch per unit effort (CPUE)."}
+plot_compare(x = data$cpue_years + data$first_yr, ADMB = lr$cpue.pred, sbt = rp$cpue_pred, 
+             xlab = "Year", ylab = "CPUE")
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Phi at age for a subset of years."}
+yrs <- c(1952, seq(1960, 2020, 10), 2022)
+
+x1 <- melt(lr$phi) %>%
+  mutate(year = c(1931:2022)[Var2], Age = Var1 - 1) %>%
+  filter(year %in% yrs)
+
+# x2 <- melt(rp$phi_ya) %>%
+#   mutate(year = c(1931:2022)[Var1], Age = Var2 - 1) %>%
+#   filter(year %in% yrs)
+
+ggplot(data = x1, aes(x = Age, y = value)) +
+  geom_line() +
+  # geom_line(data = x2, color = "red", linetype = "dashed") +
+  facet_wrap(year ~ .) +
+  labs(y = "Phi") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+```
+
+```{r echo=FALSE, message=FALSE, fig.height=10, fig.cap="Selectivity at age for a subset of years."}
+yrs <- c(1952, seq(1960, 2020, 10), 2022)
+
+x1 <- data.frame(lr$sel) %>%
+  rename(fishery = X1, year = X2) %>%
+  pivot_longer(cols = starts_with("X"), names_to = "Age") %>%
+  mutate(Age = as.numeric(gsub("X", "", Age)) - 3) %>%
+  filter(year %in% yrs)
+
+x2 <- rp$sel_fya %>%
+  melt() %>%
+  rename(fishery = Var1) %>%
+  mutate(year = c(1931:2022)[Var2], Age = Var3 - 1) %>%
+  filter(year %in% yrs)
+
+ggplot(data = x1, aes(x = Age, y = value)) +
+  geom_line() +
+  geom_line(data = x2, color = "red", linetype = "dashed") +
+  facet_grid(year ~ fishery) +
+  labs(y = "Selectivity") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+```
+
+```{r echo=FALSE, message=FALSE, fig.height=10, fig.cap="LF observations for a subset of years."}
+yrs <- c(1952, seq(1960, 2020, 10), 2022)
+
+df1 <- data.frame(data_labrep1$len.obs) %>%
+  rename(fishery = X1, year = X2) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(length = parse_number(name) - 2)
+
+oo <- data$lf_obs
+colnames(oo) <- NULL
+df2 <- data.frame(fishery = data$lf_fishery, year = data$lf_year + data$first_yr, oo) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(length = parse_number(name))
+
+ggplot(data = df1 %>% filter(year %in% yrs), aes(x = length, y = value)) +
+  geom_line() +
+  geom_line(data = df2 %>% filter(year %in% yrs), colour = "red", linetype = "dashed") +
+  facet_grid(year ~ fishery) +
+  labs(x = "Length (cm)") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+```
+
+```{r echo=FALSE, message=FALSE, fig.height=10, fig.cap="AF observations for a subset of years."}
+yrs <- c(1964, seq(1995, 2020, 5), 2022)
+
+df5 <- data.frame(data_labrep1$age.obs.1) %>%
+  rename(fishery = X1, year = X2) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(age = parse_number(name) - 3 + 6)
+df6 <- data.frame(data_labrep1$age.obs.2) %>%
+  rename(fishery = X1, year = X2) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(age = parse_number(name) - 3)
+df1 <- rbind(df5, df6) %>% select(-name)
+
+io <- data$af_obs; colnames(io) <- NULL
+df2 <- data.frame(fishery = data$af_fishery, year = data$af_year + data$first_yr, io) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(age = parse_number(name) - 1) %>% 
+  select(-name)
+
+dfa <- full_join(df1, df2, by = join_by(fishery, year, age)) %>%
+  relocate(fishery, year, age) %>%
+  arrange(fishery, year, age) %>%
+  filter(!is.na(value.x))
+sum((dfa$value.x - dfa$value.y)^2)
+
+ggplot(data = df1 %>% filter(year %in% yrs), aes(x = age, y = value)) +
+  geom_line() +
+  geom_line(data = df2 %>% filter(year %in% yrs), colour = "red", linetype = "dashed") +
+  facet_grid(year ~ fishery) +
+  labs(x = "Age") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+```
+
+```{r echo=FALSE, message=FALSE, fig.height=10, fig.cap="AF predictions for a subset of years."}
+yrs <- c(1964, seq(1995, 2020, 5), 2022)
+
+df5 <- data.frame(data_labrep1$age.pred_1) %>%
+  rename(fishery = X1, year = X2) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(age = parse_number(name) - 3 + 6)
+df6 <- data.frame(data_labrep1$age.pred_2) %>%
+  rename(fishery = X1, year = X2) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(age = parse_number(name) - 3)
+df1 <- rbind(df5, df6) %>% select(-name)
+
+df2 <- data.frame(fishery = data$af_fishery, year = data$af_year + data$first_yr, obj$report()$af_pred) %>%
+  pivot_longer(starts_with("X")) %>% 
+  mutate(age = parse_number(name) - 1) %>% 
+  select(-name)
+
+dfa <- full_join(df1, df2, by = join_by(fishery, year, age)) %>%
+  relocate(fishery, year, age) %>%
+  arrange(fishery, year, age) %>%
+  filter(!is.na(value.x))
+range(dfa$value.x - dfa$value.y)
+
+ggplot(data = df1 %>% filter(year %in% yrs), aes(x = age, y = value)) +
+  geom_line() +
+  geom_line(data = df2 %>% filter(year %in% yrs), colour = "red", linetype = "dashed") +
+  facet_grid(year ~ fishery) +
+  labs(x = "Age") +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+```
+
+# Optimising
+
+Now the model is optimised using `nlminb` to see if `TMB` produces the same result. First,
+make the initial values a little different:
+
+```{r get-inits, echo=TRUE, message=FALSE}
+Params <- list(par_log_B0 = 17,
+               par_log_psi = log(data_par1$psi),
+               par_log_m0 = log(data_par1$m0), 
+               par_log_m4 = log(0.1),
+               par_log_m10 = log(data_par1$m10), 
+               par_log_m30 = log(0.5),
+               par_log_h = log(data_par1$steep), 
+               par_log_sigma_r = log(lr$sigma.r), 
+               par_rdev_y = rnorm(n = data_par1$Reps, sd = 0.1),
+               par_sels_init_i = data_par1$par_sels_init_i, 
+               par_sels_change_i = data_par1$par_sels_change_i,
+               par_log_cpue_q = -0.02,
+               par_log_cpue_sigma = log(data_par1$sigma_cpue),
+               par_log_cpue_omega = log(data_par1$cpue_omega),
+               par_log_aerial_tau = log(data_par1$tau_aerial),
+               par_log_aerial_sel = data_par1$ln_sel_aerial,
+               par_log_troll_tau = log(0.4),
+               par_log_hsp_q = data_par1$lnqhsp, 
+               par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
+               par_log_tag_H_factor = log(data_par1$tag_H_factor)
+)
+```
+
+```{r get-map, echo=TRUE, message=FALSE}
+Map <- list()
+Map[["par_log_psi"]] <- factor(NA)
+Map[["par_log_m0"]] <- factor(NA)
+Map[["par_log_m10"]] <- factor(NA)
+Map[["par_log_h"]] <- factor(NA)
+Map[["par_log_sigma_r"]] <- factor(NA)
+Map[["par_log_cpue_sigma"]] <- factor(NA)
+Map[["par_log_cpue_omega"]] <- factor(NA)
+Map[["par_log_aerial_tau"]] <- factor(NA)
+Map[["par_log_aerial_sel"]] <- factor(rep(NA, 2))
+Map[["par_log_hsp_q"]] <- factor(NA)
+Map[["par_log_tag_H_factor"]] <- factor(NA)
+```
+
+```{r make-ad-func, echo=TRUE, message=FALSE}
+obj <- MakeADFun(data = data, parameters = Params, map = Map, random = c(), 
+                 hessian = TRUE, inner.control = list(maxit = 1000), 
+                 DLL = "sbt_v1")
+```
+
+```{r get-bnds, echo=TRUE, message=FALSE}
+bnd <- get_bounds(obj = obj)
+```
+
+```{r run-nlminb, echo=TRUE, results="hide"}
+control <- list(eval.max = 10000, iter.max = 10000)
+opt <- nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
+              lower = bnd$lower, upper = bnd$upper, control = control)
+opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
+              lower = bnd$lower, upper = bnd$upper, control = control)
+
+opt$convergence
+ce <- check_estimability(obj = obj)
+ce[[4]] %>% filter(Param_check != "OK")
+# obj$par[1:10]
+# obj$report()$spawning_biomass_y
+# opt$par[1:10]
+# obj$par <- opt$par
+```
+
+The `nlminb` function finds the same optimum as ADMB:
+
+```{r plot-compare-optim, echo=FALSE, message=FALSE, fig.cap="Spawning biomass (tonnes)."}
+plot_compare(x = 1931:2023, 
+             ADMB = lr$Sbio / 1e6, 
+             sbt = obj$report()$spawning_biomass_y / 1e6, 
+             xlab = "Year", ylab = "Spawning biomass (millions of tonnes)")
+```
