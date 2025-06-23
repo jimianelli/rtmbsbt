@@ -161,7 +161,7 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
   n_age <- ncol(phi_ya)
   lp <- numeric(n_pops)
   for (i in seq_len(n_pops)) {
-    cc <- pop_obs[i, 1]
+    cc <- pop_obs[i, 1] 
     ba <- pop_obs[i, 2] + 1
     nP <- pop_obs[i, 3]
     nC <- pop_obs[i, 4]
@@ -170,7 +170,7 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
     # pp <- min(max(pp, 1e-12), 1 - 1e-12) # NEED TO USE THE PENALTY CODE FROM CRA
     # Binomial log-likelihood
     # if (pop_switch > 0 && pp > 0) {
-    if (nP > 0) {
+    if (pp > 0) {
       lp[i] <- -(nP * log(pp) + (nC - nP) * log(1 - pp))
     }# else {
     #   lp[i] <- -nC * log(1 - pp)
