@@ -59,7 +59,7 @@ sbt_model <- function(parameters, data) {
   tau_ac2 <- get_rho(first_yr, last_yr, par_rdev_y)
   n_year2 <- n_year - 2
   rdev_y <- par_rdev_y
-  for (y in n_year2:n_year) rdev_y[y] <- tau_ac2 * par_rdev_y[y - 1] + par_rdev_y[y]
+  for (y in n_year2:n_year) rdev_y[y] <- tau_ac2 * rdev_y[y - 1] + par_rdev_y[y]
   recruitment_y <- numeric(n_year)
   recruitment_y[1] <- R0
   
