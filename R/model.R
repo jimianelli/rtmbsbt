@@ -144,10 +144,10 @@ sbt_model <- function(parameters, data) {
   lp_gt <- 0
   lp_gt <- get_GT_like(gt_switch, gt_obs, number_ysa)
 
-  # nll <- sum(lp_sel) + lp_rec + lp_hstar + lp_m10 + lp_h + lp_cpue_omega +
-  #        sum(lp_lf) + sum(lp_af) + sum(lp_cpue) + lp_aerial_tau + sum(lp_aerial) +
-  #        sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt)
-  nll <- 0
+  nll <- sum(lp_sel) + lp_rec + lp_hstar + lp_m10 + lp_h + lp_cpue_omega +
+         sum(lp_lf) + sum(lp_af) + sum(lp_cpue) + lp_aerial_tau + sum(lp_aerial) +
+         sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt)
+  # nll <- 0
 
   # Reporting
   
@@ -162,20 +162,20 @@ sbt_model <- function(parameters, data) {
   REPORT(par_sigma_r)
   REPORT(par_hstar_i)
   
-  # REPORT(lp_sel)
-  # REPORT(lp_rec)
-  # REPORT(lp_hstar)
-  # REPORT(lp_aerial_tau)
-  # REPORT(lp_lf)
-  # REPORT(lp_af)
-  # REPORT(lp_cpue)
-  # REPORT(lp_aerial)
-  # REPORT(lp_troll)
-  # REPORT(lp_tags)
-  # REPORT(lp_pop)
-  # REPORT(lp_hsp)
-  # REPORT(lp_gt)
-  # REPORT(nll)
+  REPORT(lp_sel)
+  REPORT(lp_rec)
+  REPORT(lp_hstar)
+  REPORT(lp_aerial_tau)
+  REPORT(lp_lf)
+  REPORT(lp_af)
+  REPORT(lp_cpue)
+  REPORT(lp_aerial)
+  REPORT(lp_troll)
+  REPORT(lp_tags)
+  REPORT(lp_pop)
+  REPORT(lp_hsp)
+  REPORT(lp_gt)
+  REPORT(nll)
   
   # REPORT(cpue_sigma)
   # REPORT(cpue_omega)

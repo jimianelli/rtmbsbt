@@ -366,7 +366,8 @@ get_age_like <- function(af_year, af_season, af_fishery, af_minage, af_obs, af_n
 }
 
 
-get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal) {
+get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
+                            lf_n, catch_pred_fya, alk_ysal) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
