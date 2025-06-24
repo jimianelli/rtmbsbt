@@ -205,7 +205,7 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
   return(lp)
 }
 
-get_POP_like_v2(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
+get_POP_like_v2 <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
 
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -222,8 +222,8 @@ get_POP_like_v2(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
       cc <- pop_obs[i, 1] 
       yy <- pop_obs[i, 2]
       aa <- pop_obs[i, 3] + 1 # estimated age of adult @ time of capture
-      ba <- ifelse(aa-(yy-cc) < 0,0,aa-(yy-cc))
-      ba[ba > n_age-1] <- n_age-1
+      ba <- ifelse(aa-(yy-cc) < 1,1,aa-(yy-cc))
+      ba <- min(ba,n_age)
       nP <- pop_obs[i, 5]
       nC <- pop_obs[i, 6]
       pp <- (2 * phi_ya[cc, ba]) / spawning_biomass_y[cc] # parental probability
@@ -242,7 +242,7 @@ get_POP_like_v2(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
       amin <- yy-cc+1 # anything younger than this can't be a parent
       arng <- amin:n_age
       ba <- arng-(yy-cc)
-      pp <- (2 / spawning_biomass_y[cc]) * sum(paly(ll,arng,yy) * phi_ya[cc, ba]) 
+      pp <- (2 / spawning_biomass_y[cc]) * sum(paly[ll,arng,yy] * phi_ya[cc, ba]) 
 
     }
 
@@ -252,7 +252,6 @@ get_POP_like_v2(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
 
   return(lp)
 }
-
 
 get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative, 
                          number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa) {
