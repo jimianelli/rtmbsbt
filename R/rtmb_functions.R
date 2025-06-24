@@ -531,8 +531,7 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
   yy <- y - (first_yr_catch - first_yr)
   F_f <- numeric(n_fishery)
   h_rate_fa <- array(0, dim = c(n_fishery, n_age))
-  # h_rate_a <- numeric(n_age)
-  
+
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
       if (slice_switch_f[f] == 1) {
@@ -542,7 +541,6 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
         Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
         F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
         h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
-        # h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
       }
     }
   }
@@ -597,6 +595,64 @@ get_initial_numbers <- function(B0, steep, M_a, phi_ya) {
 }
 
 get_selectivity <- function(n_age, max_age, first_yr, first_yr_catch, 
+                            sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
+                            par_sels_init_i, par_sels_change_i) {
+  
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  n_fishery <- nrow(sel_change_year_fy)
+  n_year <- ncol(sel_change_year_fy)
+  sel_fya <- array(0, dim = c(n_fishery, n_year, n_age))
+  ymin <- first_yr_catch - first_yr + 1
+  ipar <- 1
+  jpar <- 1
+  
+  for (f in seq_len(n_fishery)) {
+    amin <- sel_min_age_f[f] + 1
+    amax <- sel_max_age_f[f] + 1
+    sel_tmp <- numeric(amax - amin + 1)
+    # Initial selectivity for the first year with catch
+    for (a in amin:amax) {
+      sel_tmp[a - amin + 1] <- exp(par_sels_init_i[ipar])
+      ipar <- ipar + 1
+    }
+    mean_tmp <- mean(sel_tmp)
+    for (a in amin:amax) {
+      sel_fya[f, ymin, a] <- sel_tmp[a - amin + 1] / mean_tmp
+    }
+    if (as.logical(sel_end_f[f]) && amax < max_age) {
+      for (a in (amax + 1):n_age) {
+        sel_fya[f, ymin, a] <- sel_fya[f, ymin, amax]
+      }
+    }
+    # Selectivity in subsequent years
+    for (y in (ymin + 1):n_year) {
+      if (sel_change_year_fy[f, y] != 0) {
+        for (a in amin:amax) {
+          sel_tmp[a - amin + 1] <- sel_fya[f, y - 1, a] * exp(par_sels_change_i[jpar])
+          jpar <- jpar + 1
+        }
+        mean_tmp <- mean(sel_tmp)
+        for (a in amin:amax) {
+          sel_fya[f, y, a] <- sel_tmp[a - amin + 1] / mean_tmp
+        }
+        if (as.logical(sel_end_f[f]) && amax < max_age) {
+          for (a in (amax + 1):n_age) {
+            sel_fya[f, y, a] <- sel_fya[f, y, amax]
+          }
+        }
+      } else {
+        sel_fya[f, y, ] <- sel_fya[f, y - 1, ]
+      }
+    }
+  }
+  return(sel_fya)
+}
+
+
+
+get_selectivity_v1 <- function(n_age, max_age, first_yr, first_yr_catch, 
                             sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
                             par_sels_init_i, par_sels_change_i) {
   
