@@ -486,39 +486,66 @@ get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y) {
   "diag<-" <- ADoverload("diag<-")
   n_year <- length(rdev_y)
   sr_dep <- 1e-10 # depensation parameter
-  # rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y] - 0.5 * sigma_r^2)
   rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y] - 0.5 * sigma_r^2)
-  # rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y])
   return(rec)
 }
 
-
-get_harvest_rate <- function(y, s, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya) {
+#' Ensure population above 0
+#' 
+#' https://github.com/kaskr/adcomp/issues/7
+#' 
+#' @param x value to remain above eps
+#' @param eps value to compare x to
+#' @return a \code{vector} penalty
+#' @importFrom RTMB ADoverload logspace_add
+#' @export
+#'
+posfun <- function(x, eps = 0.001) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  
+  pen <- eps * (1 / (1 - (x - eps) / eps + 
+                       (x - eps)^2 / eps^2 - (x - eps)^3 / eps^3 + 
+                       (x - eps)^4 / eps^4 - (x - eps)^5 / eps^5))
+  out <- list()
+  out$new <- eps * logspace_add(x / eps, 0)
+  out$penalty <- pen
+  return(out)
+}
+
+
+
+get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f, 
+                             catch_obs_ysf, number_ysa, sel_fya, weight_fya,
+                             sliced_ysfa) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
   n_fishery <- dim(sel_fya)[1]
   n_year <- dim(sel_fya)[2]
   n_age <- dim(sel_fya)[3]
   yy <- y - (first_yr_catch - first_yr)
   F_f <- numeric(n_fishery)
+  h_rate_fa <- array(0, dim = c(n_fishery, n_age))
   h_rate_a <- numeric(n_age)
   
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
-      Nsum <- 1e-6 + sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,])
-      F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
-      h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
+      # if (slice_switch_f[f] == 1) {
+      #   Nsum <- sum(sliced_ysfa[y,s,f,] * weight_fya[f,y,]) + 1e-6
+      #   h_rate_fa[f,] <- (catch_obs_ysf[y,s,f] * sliced_ysfa[y,s,f,]) / (number_ysa[y,s,] * Nsum)
+      # } else {
+        Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
+        F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
+        h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
+        # h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
+      # }
     }
   }
-  # kap <- 100
-  # for (a in seq_len(n_age)) {
-  #   if (h_rate_a[a] > 0.9) {
-  #     h_rate_a[a] <- 0.9
-  #   }
-  # }
-  return(list(h_rate_a = h_rate_a, F_f = F_f))
+  h_rate_a <- colSums(h_rate_fa)
+  
+  tmp <- posfun(x = 1 - sum(F_f), eps = 0.001)
+  return(list(h_rate_a = h_rate_a, F_f = F_f, penalty = tmp$penalty))
 }
 
 get_rho <- function(first_yr, last_yr, rdev) {
@@ -763,16 +790,6 @@ expm1 <- function(x) {
   } else {
     exp(x) - 1
   }
-}
-
-#' Posfun function
-#' @param x A numeric value.
-#' @param eps A small positive value.
-#' @param pen A penalty term.
-#' @return A value adjusted by posfun.
-posfun <- function(x, eps, pen) {
-  pen <- pen + ifelse(x < eps, 0.01 * (x - eps)^2, 0)
-  ifelse(x >= eps, x, eps / (2 - x / eps))
 }
 
 #' Student's t-density

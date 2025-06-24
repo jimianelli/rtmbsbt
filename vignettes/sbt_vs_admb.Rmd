@@ -85,6 +85,7 @@ map <- list()
 # compile(file.path(sbt_src, "sbt_v1.cpp"))
 # dyn.load(dynlib(file.path(sbt_src, "sbt_v1")))
 # obj <- MakeADFun(data = data, parameters = Params, DLL = "sbt_v1")
+data$tag_switch <- 1
 source("../R/model.R")
 source("../R/rtmb_functions.R")
 obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
@@ -195,29 +196,6 @@ plot_compare(x = 1931:2023, ADMB = lr$Recruitment / 1e6,
              sbt = rp$recruitment_y / 1e6,
              # sbt = num[,1,1] / 1e6,
              xlab = "Year", ylab = "Recruitment (million)")
-
-plot(lr$Recruitment)
-lines(rp$recruitment_y)
-
-n_year <- data$n_year
-rdev_y <- parameters$par_rdev_y
-n_year2 <- n_year - 2
-for (y in n_year2:n_year) rdev_y[y] <- lr$AC_penalty[2] * parameters$par_rdev_y[y - 1] + parameters$par_rdev_y[y]
-n_year1 <- n_year - 1
-for (y in n_year1) rdev_y[y] <- 1.4 * parameters$par_rdev_y[y - 1] + parameters$par_rdev_y[y]
-for (y in n_year) rdev_y[y] <- parameters$par_rdev_y[y]
-plot(lr$Rdev, xlim = c(85, n_year))
-lines(rdev_y, col = 2)
-
-plot(lr$Reps)
-lines(parameters$par_rdev_y)
-
-# plot(lr$Rdev, xlim = c(85, n_year))
-plot(lr$Rdev)
-lines(rp$rdev_y)
-
-plot(lr$Recruitment)
-lines(rp$recruitment_y)
 ```
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Total number of inidividuals each year."}
@@ -243,13 +221,13 @@ x1 <- melt(lr$phi) %>%
   mutate(year = c(1931:2022)[Var2], Age = Var1 - 1) %>%
   filter(year %in% yrs)
 
-# x2 <- melt(rp$phi_ya) %>%
-#   mutate(year = c(1931:2022)[Var1], Age = Var2 - 1) %>%
-#   filter(year %in% yrs)
+x2 <- melt(rp$phi_ya) %>%
+  mutate(year = c(1931:2022)[Var1], Age = Var2 - 1) %>%
+  filter(year %in% yrs)
 
 ggplot(data = x1, aes(x = Age, y = value)) +
   geom_line() +
-  # geom_line(data = x2, color = "red", linetype = "dashed") +
+  geom_line(data = x2, color = "red", linetype = "dashed") +
   facet_wrap(year ~ .) +
   labs(y = "Phi") +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
@@ -395,27 +373,29 @@ Params <- list(par_log_B0 = 17,
 ```
 
 ```{r get-map, echo=TRUE, message=FALSE}
-Map <- list()
-Map[["par_log_psi"]] <- factor(NA)
-Map[["par_log_m0"]] <- factor(NA)
-Map[["par_log_m10"]] <- factor(NA)
-Map[["par_log_h"]] <- factor(NA)
-Map[["par_log_sigma_r"]] <- factor(NA)
-Map[["par_log_cpue_sigma"]] <- factor(NA)
-Map[["par_log_cpue_omega"]] <- factor(NA)
-Map[["par_log_aerial_tau"]] <- factor(NA)
-Map[["par_log_aerial_sel"]] <- factor(rep(NA, 2))
-Map[["par_log_hsp_q"]] <- factor(NA)
-Map[["par_log_tag_H_factor"]] <- factor(NA)
+map <- list()
+map[["par_log_psi"]] <- factor(NA)
+map[["par_log_m0"]] <- factor(NA)
+map[["par_log_m10"]] <- factor(NA)
+map[["par_log_h"]] <- factor(NA)
+map[["par_log_sigma_r"]] <- factor(NA)
+map[["par_log_cpue_sigma"]] <- factor(NA)
+map[["par_log_cpue_omega"]] <- factor(NA)
+map[["par_log_aerial_tau"]] <- factor(NA)
+map[["par_log_aerial_sel"]] <- factor(rep(NA, 2))
+map[["par_log_hsp_q"]] <- factor(NA)
+map[["par_log_tag_H_factor"]] <- factor(NA)
 ```
 
 ```{r make-ad-func, echo=TRUE, message=FALSE}
-obj <- MakeADFun(data = data, parameters = Params, map = Map, random = c(), 
-                 hessian = TRUE, inner.control = list(maxit = 1000), 
-                 DLL = "sbt_v1")
+# obj <- MakeADFun(data = data, parameters = Params, map = map, random = c(), 
+#                  hessian = TRUE, inner.control = list(maxit = 1000), 
+#                  DLL = "sbt_v1")
+obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
 ```
 
 ```{r get-bnds, echo=TRUE, message=FALSE}
+Params <- parameters
 bnd <- get_bounds(obj = obj)
 ```
 
@@ -433,6 +413,21 @@ ce[[4]] %>% filter(Param_check != "OK")
 # obj$report()$spawning_biomass_y
 # opt$par[1:10]
 # obj$par <- opt$par
+
+library(adnuts)
+mcmc <- sample_sparse_tmb(
+  obj = obj, metric = "auto", iter = 1000, chains = 4, cores = 4,
+  control = list(adapt_delta = 0.95), init = "last.par.best",
+  # lower = Lwr, upper = Upr, # these bounds dont seem to work
+  globals = list(posfun = posfun, get_M = get_M, get_phi = get_phi, 
+                 get_initial_numbers = get_initial_numbers, 
+                 get_recruitment = get_recruitment, get_harvest_rate = get_harvest_rate,
+                 get_rho = get_rho, get_selectivity = get_selectivity,
+                 get_sel_like = get_sel_like, get_recruitment_prior = get_recruitment_prior,
+                 get_length_like = get_length_like, get_age_like = get_age_like, 
+                 get_cpue_like = get_cpue_like,
+                 get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
+                 get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
 ```
 
 The `nlminb` function finds the same optimum as ADMB:

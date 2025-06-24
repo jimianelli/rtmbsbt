@@ -15,7 +15,6 @@ sbt_model <- function(parameters, data) {
   "diag<-" <- ADoverload("diag<-")
   getAll(data, parameters, warn = FALSE)
   # catch_obs <- OBS(catch_obs)
-  # gi_obs <- OBS(gi_obs) # doesn't work for robust normal
   # cpue_obs <- OBS(cpue_obs)
   # lf_obs <- OBS(lf_obs) # doesn't work for multinomial without rounding and all sorts
   
@@ -42,9 +41,11 @@ sbt_model <- function(parameters, data) {
   M_a <- get_M(min_age, max_age, age_increase_M, par_m0, par_m4, par_m10, par_m30)
   S_a <- exp(-0.5 * M_a)
   phi_ya <- get_phi(par_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
-  sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch, sel_min_age_f, sel_max_age_f, sel_end_f, 
+  
+  sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch, 
+                             sel_min_age_f, sel_max_age_f, sel_end_f, 
                              sel_change_year_fy, par_sels_init_i, par_sels_change_i)
-
+  
   # Initial conditions
   
   init <- get_initial_numbers(par_B0, par_h, M_a, phi_ya)
@@ -70,20 +71,26 @@ sbt_model <- function(parameters, data) {
   catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   fy <- first_yr_catch - first_yr + 1
   n_age1 <- n_age - 1
+  lp_penalty <- 0
+  
+  slice_switch_f <- numeric(n_fishery)
+  sliced_ysfa <- 1
   
   for (y in seq_len(n_year)) {
     # Season 1
     if (y >= fy) {
-      hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
+      hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, slice_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, sliced_ysfa)
       hrate_ysa[y,1,] <- hr$h_rate_a
       F_ysf[y,1,] <- hr$F_f
+      lp_penalty <- lp_penalty + hr$penalty
     }
     number_ysa[y,2,] <- number_ysa[y,1,] * (1 - hrate_ysa[y,1,]) * S_a
     # Season 2
     if (y >= fy) {
-      hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
+      hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, slice_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, sliced_ysfa)
       hrate_ysa[y,2,] <- hr$h_rate_a
       F_ysf[y,2,] <- hr$F_f
+      lp_penalty <- lp_penalty + hr$penalty
     }
     number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
     number_ysa[y + 1, 1, n_age] <- number_ysa[y + 1, 1, n_age] + (number_ysa[y, 2, n_age] * (1 - hrate_ysa[y, 2, n_age]) * S_a[n_age])
@@ -104,6 +111,15 @@ sbt_model <- function(parameters, data) {
   lp_sel <- get_sel_like(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, 
                          sel_change_year_fy, sel_change_sd_fy, sel_smooth_sd_f, 
                          par_sels_init_i, par_sels_change_i, sel_fya)
+  
+  # length(par_sels_init_i)
+  # length(par_sels_change_i)
+  # 
+  # f1 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
+  # f2 <- function(x) dautoreg(x, phi = 0.1, log = TRUE)
+  # x <- array(rnorm(100), dim = c(3, 2))
+  # -dseparable(f1, f2)(x)
+  
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
   lp_hstar <- 0.1 * sum((log(par_hstar_i) + 6)^2)
   lp_m10 <- 0
@@ -147,7 +163,7 @@ sbt_model <- function(parameters, data) {
 
   nll <- sum(lp_sel) + lp_rec + lp_hstar + lp_m10 + lp_h + lp_cpue_omega +
          sum(lp_lf) + sum(lp_af) + sum(lp_cpue) + lp_aerial_tau + sum(lp_aerial) +
-         sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt)
+         sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt) + lp_penalty
 
   # Reporting
   
@@ -179,10 +195,10 @@ sbt_model <- function(parameters, data) {
   
   # REPORT(cpue_sigma)
   # REPORT(cpue_omega)
-  # REPORT(cpue_pred)
-  # REPORT(cpue_resid)
-  # REPORT(aerial_pred)
-  # REPORT(aerial_resid)
+  REPORT(cpue_pred)
+  REPORT(cpue_resid)
+  REPORT(aerial_pred)
+  REPORT(aerial_resid)
   # REPORT(troll_pred)
   # REPORT(troll_resid)
   # REPORT(tag_pred)
