@@ -10,7 +10,28 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-
+  
+  # tag_switch, minK, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa
+  # par_hstar_i
+  # tag_release_cta <- tag_release_cta + 1
+  # tag_recap_ctaa <- tag_recap_ctaa + 1
+  # minI = tag_rel_min_age + 1
+  # maxI = tag_rel_max_age + 1
+  # maxJ = tag_recap_max_age + 1
+  # shed1 = tag_shed_immediate
+  # shed2 = tag_shed_continuous
+  # tag_rep_rates_ya
+  # tag_H_factor = par_tag_H_factor
+  # tag_var_factor
+  # tag_offset
+  # minK=min_K
+  # n_I=n_I+1
+  # n_K=n_K+1
+  # n_T=n_T+1
+  # n_J=n_J+1
+  
+  
+  lp <- 0
   hstar_s1_ya <- matrix(0, nrow = n_K, ncol = n_I)
   ipar <- 1
   for (k in seq_len(n_K)) {
@@ -20,57 +41,46 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     }
   }
   
-  prR <- tag_pred <- tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
-  S1 <- S2 <- f1 <- f2 <- array(0, dim = c(n_K, n_T, n_J))
-  S1star <- S2star <- f1star <- f2star <- array(0, dim = c(n_K, n_T, n_I))
+  # Arrays for results
+  prR <- array(0, dim = c(n_K, n_T, n_I, n_J))
+  tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
+  tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
   
-  # Survival and exploitation rates for tagged fish by age and tagger
+  # Survival and exploitation rates for tagged fish
   for (k in seq_len(n_K)) {
     for (j in minI[k]:maxJ[k]) {
-      iy <- minK + k - 1 + j
-      hplus <- tag_H_factor * hrate_ysa[iy, 1, j + 1] # factor to account for lack of complete mixing in season 1 
+      iy <- minK + k - 1 + j - 1
+      hplus <- tag_H_factor * hrate_ysa[iy, 1, j]
       for (t in seq_len(n_T)) {
-        S1[k, t, j] <- (1 - hplus) * (1 - hrate_ysa[iy, 2, j + 1]) * exp(-M_a[j + 1] - shed2[t])
-        S2[k, t, j] <- (1 - hplus) * (1 - hrate_ysa[iy, 2, j + 1]) * exp(-M_a[j + 1] - 2 * shed2[t])
-        f1[k, t, j] <- hplus + (1 - hplus) * exp(-0.5 * (M_a[j + 1] + shed2[t])) * hrate_ysa[iy, 2, j + 1]
-        f2[k, t, j] <- hplus + (1 - hplus) * exp(-0.5 * (M_a[j + 1] + 2 * shed2[t])) * hrate_ysa[iy, 2, j + 1]
-      }
-    }
-  }
-  
-  for (k in seq_len(n_K)) {
-    for (i in minI[k]:maxI[k]) {
-      for (t in seq_len(n_T)) {
-        iy <- minK + k - 1 + i
-        S1star[k, t, i] <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy, 2, i + 1]) * exp(-M_a[i + 1] - shed2[t])
-        S2star[k, t, i] <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy, 2, i + 1]) * exp(-M_a[i + 1] - 2 * shed2[t])
-        f1star[k, t, i] <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i + 1] + shed2[t])) * hrate_ysa[iy, 2, i + 1]
-        f2star[k, t, i] <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i + 1] + 2 * shed2[t])) * hrate_ysa[iy, 2, i + 1]
-      }
-    }
-  }
-  
-  # Generate probabilities of recapture
-  # tag_rep_rates_ya: years 1991-1997, ages 1-8
-  for (k in seq_len(n_K)) {
-    for (t in seq_len(n_T)) {
-      for (i in minI[k]:maxI[k]) {
-        for (j in minI[k]:maxJ[k]) {
-          if (j == i) {
-            prR[k, t, i, j] <- (2 * shed1[t] * f1star[k, t, j] - shed1[t]^2 * f2star[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
-          }
-          if (j == (i + 1)) {
-            prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * f1[k, t, j] - shed1[t]^2 * S2star[k, t, i] * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
-          }
-          if (j > (i + 1)) {
-            prodS1 <- 1
-            prodS2 <- 1
-            for (s in (i + 1):(j - 1)) {
-              prodS1 <- prodS1 * S1[k, t, s]
-              prodS2 <- prodS2 * S2[k, t, s]
+        # Survival/exploitation rates (season 1 and 2)
+        S1 <- (1 - hplus) * (1 - hrate_ysa[iy, 2, j]) * exp(-M_a[j] - shed2[t])
+        S2 <- (1 - hplus) * (1 - hrate_ysa[iy, 2, j]) * exp(-M_a[j] - 2 * shed2[t])
+        f1 <- hplus + (1 - hplus) * exp(-0.5 * (M_a[j] + shed2[t])) * hrate_ysa[iy, 2, j]
+        f2 <- hplus + (1 - hplus) * exp(-0.5 * (M_a[j] + 2 * shed2[t])) * hrate_ysa[iy, 2, j]
+        # Star versions (using hstar_s1_ya)
+        for (i in minI[k]:maxI[k]) {
+          iy_star <- minK + k - 1 + i - 1
+          S1star <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy_star, 2, i]) * exp(-M_a[i] - shed2[t])
+          S2star <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy_star, 2, i]) * exp(-M_a[i] - 2 * shed2[t])
+          f1star <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i] + shed2[t])) * hrate_ysa[iy_star, 2, i]
+          f2star <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i] + 2 * shed2[t])) * hrate_ysa[iy_star, 2, i]
+          for (j2 in minI[k]:maxJ[k]) {
+            # Probabilities of recapture (prR)
+            if (j2 < i) {
+              prR[k, t, i, j2] <- 0
+            } else if (j2 == i) {
+              prR[k, t, i, j2] <- (2 * shed1[t] * f1star - shed1[t]^2 * f2star) * tag_rep_rates_ya[k + j2 - 2, j2]
+            } else if (j2 == (i + 1)) {
+              prR[k, t, i, j2] <- (2 * shed1[t] * S1star * f1 - shed1[t]^2 * S2star * f2) * tag_rep_rates_ya[k + j2 - 2, j2]
+            } else if (j2 > (i + 1)) {
+              prodS1 <- 1
+              prodS2 <- 1
+              for (s in (i + 1):(j2 - 1)) {
+                prodS1 <- prodS1 * S1
+                prodS2 <- prodS2 * S2
+              }
+              prR[k, t, i, j2] <- (2 * shed1[t] * S1star * prodS1 * f1 - shed1[t]^2 * S2star * prodS2 * f2) * tag_rep_rates_ya[k + j2 - 2, j2]
             }
-            prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * prodS1 * f1[k, t, j] - 
-                                  shed1[t]^2 * S2star[k, t, i] * prodS2 * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
           }
         }
       }
@@ -90,60 +100,37 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     }
   }
   
-  # preliminary overdispersion offset
-  tag_offset1 <- 0
-  for (k in seq_len(n_K)) {
-    for (t in seq_len(n_T)) {
-      for (i in minI[k]:maxI[k]) {
-        Nrel <- tag_release_cta[k,t,i]
-        tag_od <- (Nrel - tag_var_factor) / (tag_var_factor - 1)
-        if (tag_od <= 0) tag_od <- 1e-3
-        tag_offset1 <- tag_offset1 + lgamma(tag_od) - lgamma(Nrel + tag_od)
-        totR <- 0 
-        totprR <- 0
-        for (j in i:maxJ[k]) {
-          prR1 <- 1e-6 + tag_recap_ctaa[k,t,i,j] / (1e-6 + Nrel)
-          tag_offset1 <- tag_offset1 + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR1) - lgamma(tag_od * prR1)
-          totR <- totR + tag_recap_ctaa[k,t,i,j]
-          totprR <- totprR + prR1
-        }
-        notR <- Nrel - totR
-        pr_notR <- 1 - totprR
-        tag_offset1 <- tag_offset1 + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
-      }
-    }
-  }
-  
-  # 8) log‐likelihood under beta‐binomial
-  lp <- 0
+  # Calculate likelihood
   if (tag_switch > 0) {
-    loglkhd_R <- 0
     for (k in seq_len(n_K)) {
       for (t in seq_len(n_T)) {
         for (i in minI[k]:maxI[k]) {
-          Nrel <- tag_release_cta[k,t,i]
-          tag_od <- (Nrel - tag_var_factor) / (tag_var_factor - 1)
-          if (tag_od < 0) tag_od <- 1e-3
-          loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(Nrel + tag_od)
           totR <- 0
           totprR <- 0
+          tag_od <- (tag_release_cta[k, t, i] - tag_var_factor) / (tag_var_factor - 1)
+          if (tag_od < 0) tag_od <- 0.001
+          lp <- lp + lgamma(tag_od) - lgamma(tag_release_cta[k, t, i] + tag_od)
           for (j in i:maxJ[k]) {
-            loglkhd_R <- loglkhd_R + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR[k,t,i,j]) - lgamma(tag_od * prR[k,t,i,j]) 
-            totR <- totR + tag_recap_ctaa[k,t,i,j]
-            totprR <- totprR + prR[k,t,i,j]
+            lp <- lp + lgamma(tag_recap_ctaa[k, t, i, j] + tag_od * prR[k, t, i, j]) - lgamma(tag_od * prR[k, t, i, j])
+            totR <- totR + tag_recap_ctaa[k, t, i, j]
+            totprR <- totprR + prR[k, t, i, j]
           }
-          notR <- Nrel - totR
+          notR <- tag_release_cta[k, t, i] - totR
           pr_notR <- 1 - totprR
-          loglkhd_R <- loglkhd_R + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
+          lp <- lp + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
         }
       }
     }
-    lp <- -loglkhd_R + tag_offset1
+    lp <- -lp + tag_offset
+  } else {
+    lp <- 0
   }
+  
+  # sum(lp)
+  # 176.553
   
   return(lp)
 }
-
 
 get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aerial_cv, aerial_cov, 
                                    par_aerial_tau, par_log_aerial_sel, number_ysa, weight_fya) {
@@ -156,6 +143,7 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
   I <- diag(nrow = n_aerial, ncol = n_aerial)
   cov_matrix <- aerial_cov + I * aerial_tau2
   cov_inv <- solve(cov_matrix)
+  
   # Aerial selectivity (3 ages: 2, 3, 4)
   if (aerial_switch == 0) {
     aerial_sel <- c(0.5, 1, 1)
@@ -217,6 +205,53 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
   return(lp)
 }
 
+get_POP_like_v2(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
+
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  n_pops <- nrow(pop_obs)
+  n_age <- ncol(phi_ya)
+  lp <- numeric(n_pops)
+  for (i in seq_len(n_pops)) {
+
+    # adult has a direct age
+
+    if(pop_obs[i,4] == 0) {
+
+      cc <- pop_obs[i, 1] 
+      yy <- pop_obs[i, 2]
+      aa <- pop_obs[i, 3] + 1 # estimated age of adult @ time of capture
+      ba <- ifelse(aa-(yy-cc) < 0,0,aa-(yy-cc))
+      ba[ba > n_age-1] <- n_age-1
+      nP <- pop_obs[i, 5]
+      nC <- pop_obs[i, 6]
+      pp <- (2 * phi_ya[cc, ba]) / spawning_biomass_y[cc] # parental probability
+
+    }
+
+    # adult has observed length only
+
+    if(pop_obs[i,4] == 1) {
+
+      cc <- pop_obs[i, 1] 
+      yy <- pop_obs[i, 2]
+      ll <- pop_obs[i, 3] # observed length bin of adult @ time of capture
+      nP <- pop_obs[i, 5]
+      nC <- pop_obs[i, 6]
+      amin <- yy-cc+1 # anything younger than this can't be a parent
+      arng <- amin:n_age
+      ba <- arng-(yy-cc)
+      pp <- (2 / spawning_biomass_y[cc]) * sum(paly(ll,arng,yy) * phi_ya[cc, ba]) 
+
+    }
+
+    lp[i] <- -(nP * log(pp) + (nC - nP) * log(1 - pp)) 
+
+  }
+
+  return(lp)
+}
 
 
 get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative, 
@@ -377,8 +412,8 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
   "diag<-" <- ADoverload("diag<-")
   n_af <- nrow(af_obs)
   n_age <- dim(catch_pred_fya)[3]
-  age_pred <- matrix(0, n_af, n_age)
   lp <- numeric(n_af)
+  age_pred <- matrix(0, n_af, n_age)
   for (i in seq_len(n_af)) {
     f <- af_fishery[i]
     y <- af_year[i]
@@ -391,10 +426,10 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
     pred[1] <- sum(catch_pred_fya[f, y, 1:amin])
     pred[n_a] <- sum(catch_pred_fya[f, y, amax:n_age])
     pred <- (pred / sum(pred)) + 1e-6
-    age_pred[i, amin:amax] <- pred
-    lp[i] <- af_n[i] * sum(obs * log(obs)) - af_n[i] * sum(obs * log(pred))
+    lp[i] <- -af_n[i] * sum(obs * log(pred))
+    lp[i] <- lp[i] + af_n[i] * sum(obs * log(obs))
   }
-  return(list(pred = age_pred, lp = lp))
+  return(lp)
 }
 
 
@@ -403,11 +438,12 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
+  
   n_lf <- nrow(lf_obs)
   n_bins <- 25
   n_age <- dim(catch_pred_fya)[3]
-  lf_pred <- matrix(0, n_lf, n_bins)
   lp <- numeric(n_lf)
+  lf_pred <- matrix(0, n_lf, n_bins)
   
   for (i in seq_len(n_lf)) {
     y <- lf_year[i]
@@ -420,22 +456,25 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
     obs <- lf_obs[i,]
     if (mbin > 1) {
       pred[mbin] <- sum(pred[1:mbin])
+      # pred[1:(mbin - 1)] <- 0
       obs[mbin] <- sum(obs[1:mbin])
+      # obs[1:(mbin - 1)] <- 0
       obs <- obs[mbin:n_bins]
       pred <- pred[mbin:n_bins]
     }
-    lf_pred[i, mbin:n_bins] <- pred
+    # lf_pred[i,] <- pred
     lp[i] <- -lf_n[i] * sum(obs * log(pred))
     obs <- obs + 1e-6
     lp[i] <- lp[i] + lf_n[i] * sum(obs * log(obs))
   }
-  return(list(pred = lf_pred, lp = lp))
+  return(lp)
 }
 
 get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll_tau, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
+  
   n_troll <- length(troll_years)
   troll_sd2 <- troll_sd^2 + troll_tau^2
   pred <- lp <- numeric(n_troll)
@@ -444,15 +483,19 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll
     pred[i] <- number_ysa[iy, 1, 2]
   }
   troll_q <- sum(pred * (troll_obs / troll_sd2)) / sum(pred * (pred / troll_sd2))
-  troll_pred <- pred * troll_q
+  pred <- pred * troll_q
   troll_sig <- sqrt(troll_sd2)
-  troll_res <- (troll_obs - troll_pred) / troll_sig
-  if (troll_switch > 0) {
-    lp <- log(troll_sig) + 0.5 * troll_res^2
-  } else {
-    lp[] <- 0
-  }
-  return(list(pred = troll_pred, resid = troll_res, lp = lp))
+  troll_res <- (troll_obs - pred) / troll_sig
+  lp <- log(troll_sig) + 0.5 * troll_res^2
+  # troll_pred <- pred
+  # troll_resid <- troll_obs - pred
+  # if (troll_switch > 0) {
+  #   for (i in seq_len(n_troll)) {
+    # }
+  # } else {
+  #   lp[] <- 0
+  # }
+  return(lp)
 }
 
 get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
@@ -490,65 +533,39 @@ get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y) {
   "diag<-" <- ADoverload("diag<-")
   n_year <- length(rdev_y)
   sr_dep <- 1e-10 # depensation parameter
+  # rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y] - 0.5 * sigma_r^2)
   rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y] - 0.5 * sigma_r^2)
+  # rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y])
   return(rec)
 }
 
-#' Ensure population above 0
-#' 
-#' https://github.com/kaskr/adcomp/issues/7
-#' 
-#' @param x value to remain above eps
-#' @param eps value to compare x to
-#' @return a \code{vector} penalty
-#' @importFrom RTMB ADoverload logspace_add
-#' @export
-#'
-posfun <- function(x, eps = 0.001) {
+
+get_harvest_rate <- function(y, s, first_yr, first_yr_catch, catch_obs_ysf, number_ysa, sel_fya, weight_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  pen <- eps * (1 / (1 - (x - eps) / eps + 
-                       (x - eps)^2 / eps^2 - (x - eps)^3 / eps^3 + 
-                       (x - eps)^4 / eps^4 - (x - eps)^5 / eps^5))
-  out <- list()
-  out$new <- eps * logspace_add(x / eps, 0)
-  out$penalty <- pen
-  return(out)
-}
-
-
-
-get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f, 
-                             catch_obs_ysf, number_ysa, sel_fya, weight_fya,
-                             sliced_ysfa) {
-  "[<-" <- ADoverload("[<-")
-  "c" <- ADoverload("c")
-  "diag<-" <- ADoverload("diag<-")
+  
   n_fishery <- dim(sel_fya)[1]
   n_year <- dim(sel_fya)[2]
   n_age <- dim(sel_fya)[3]
   yy <- y - (first_yr_catch - first_yr)
   F_f <- numeric(n_fishery)
-  h_rate_fa <- array(0, dim = c(n_fishery, n_age))
-  # h_rate_a <- numeric(n_age)
+  h_rate_a <- numeric(n_age)
   
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
-      if (slice_switch_f[f] == 1) {
-        Nsum <- sum(sliced_ysfa[y,s,f,] * weight_fya[f,y,]) + 1e-6
-        h_rate_fa[f,] <- (catch_obs_ysf[y,s,f] * sliced_ysfa[y,s,f,]) / (number_ysa[y,s,] * Nsum)
-      } else {
-        Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
-        F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
-        h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
-        # h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
-      }
+      Nsum <- 1e-6 + sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,])
+      F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
+      h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
     }
   }
-  h_rate_a <- colSums(h_rate_fa)
-  tmp <- posfun(x = 1 - sum(F_f), eps = 0.001)
-  return(list(h_rate_a = h_rate_a, F_f = F_f, penalty = tmp$penalty))
+  # kap <- 100
+  # for (a in seq_len(n_age)) {
+  #   if (h_rate_a[a] > 0.9) {
+  #     h_rate_a[a] <- 0.9
+  #   }
+  # }
+  return(list(h_rate_a = h_rate_a, F_f = F_f))
 }
 
 get_rho <- function(first_yr, last_yr, rdev) {
@@ -793,6 +810,16 @@ expm1 <- function(x) {
   } else {
     exp(x) - 1
   }
+}
+
+#' Posfun function
+#' @param x A numeric value.
+#' @param eps A small positive value.
+#' @param pen A penalty term.
+#' @return A value adjusted by posfun.
+posfun <- function(x, eps, pen) {
+  pen <- pen + ifelse(x < eps, 0.01 * (x - eps)^2, 0)
+  ifelse(x >= eps, x, eps / (2 - x / eps))
 }
 
 #' Student's t-density
