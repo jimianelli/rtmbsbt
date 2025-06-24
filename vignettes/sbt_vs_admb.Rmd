@@ -85,7 +85,7 @@ map <- list()
 # compile(file.path(sbt_src, "sbt_v1.cpp"))
 # dyn.load(dynlib(file.path(sbt_src, "sbt_v1")))
 # obj <- MakeADFun(data = data, parameters = Params, DLL = "sbt_v1")
-# data$tag_switch <- 1
+data$tag_switch <- 1
 source("../R/model.R")
 source("../R/rtmb_functions.R")
 obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
