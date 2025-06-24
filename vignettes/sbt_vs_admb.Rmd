@@ -150,8 +150,9 @@ df2 <- data.frame(
   mutate(diff2 = abs(diff1 / ADMB) * 100) %>%
   mutate(diff2 = ifelse(is.finite(diff2), diff2, 0))
 
-bind_rows(df0, df1, df2) %>%
-  kbl(col.names = c("", "ADMB", "RTMB", "Difference", "Percent difference"), caption = NULL, digits = c(7, 7, 7, 7, 4)) %>%
+df <- bind_rows(df0, df1, df2)
+
+kbl(df, col.names = c("", "ADMB", "RTMB", "Difference", "Percent difference"), caption = NULL, digits = c(7, 7, 7, 7, 4)) %>%
   kable_styling("bordered") %>%
   column_spec(column = 5, color = "white", background = spec_color(df$diff2)) %>%
   group_rows("Parameters", 1, 9) %>%
