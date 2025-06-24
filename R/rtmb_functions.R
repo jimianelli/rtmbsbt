@@ -90,33 +90,7 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     }
   }
   
-  # Calculate likelihood
-  # if (tag_switch > 0) {
-  #   for (k in seq_len(n_K)) {
-  #     for (t in seq_len(n_T)) {
-  #       for (i in minI[k]:maxI[k]) {
-  #         totR <- 0
-  #         totprR <- 0
-  #         tag_od <- (tag_release_cta[k, t, i] - tag_var_factor) / (tag_var_factor - 1)
-  #         if (tag_od < 0) tag_od <- 0.001
-  #         lp <- lp + lgamma(tag_od) - lgamma(tag_release_cta[k, t, i] + tag_od)
-  #         for (j in i:maxJ[k]) {
-  #           lp <- lp + lgamma(tag_recap_ctaa[k, t, i, j] + tag_od * prR[k, t, i, j]) - lgamma(tag_od * prR[k, t, i, j])
-  #           totR <- totR + tag_recap_ctaa[k, t, i, j]
-  #           totprR <- totprR + prR[k, t, i, j]
-  #         }
-  #         notR <- tag_release_cta[k, t, i] - totR
-  #         pr_notR <- 1 - totprR
-  #         lp <- lp + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
-  #       }
-  #     }
-  #   }
-  #   lp <- -lp + tag_offset
-  # } else {
-  #   lp <- 0
-  # }
-  
-  # 7) preliminary overdispersion offset
+  # preliminary overdispersion offset
   tag_offset1 <- 0
   for (k in seq_len(n_K)) {
     for (t in seq_len(n_T)) {
@@ -130,10 +104,10 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
         for (j in i:maxJ[k]) {
           prR1 <- 1e-6 + tag_recap_ctaa[k,t,i,j] / (1e-6 + Nrel)
           tag_offset1 <- tag_offset1 + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR1) - lgamma(tag_od * prR1)
-          totR   <- totR   + tag_recap_ctaa[k,t,i,j]
+          totR <- totR + tag_recap_ctaa[k,t,i,j]
           totprR <- totprR + prR1
         }
-        notR    <- Nrel - totR
+        notR <- Nrel - totR
         pr_notR <- 1 - totprR
         tag_offset1 <- tag_offset1 + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
       }
@@ -182,7 +156,6 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
   I <- diag(nrow = n_aerial, ncol = n_aerial)
   cov_matrix <- aerial_cov + I * aerial_tau2
   cov_inv <- solve(cov_matrix)
-  
   # Aerial selectivity (3 ages: 2, 3, 4)
   if (aerial_switch == 0) {
     aerial_sel <- c(0.5, 1, 1)

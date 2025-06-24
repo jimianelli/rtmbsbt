@@ -402,6 +402,7 @@ bnd <- get_bounds(obj = obj)
 
 ```{r run-nlminb, echo=TRUE, results="hide"}
 control <- list(eval.max = 10000, iter.max = 10000)
+
 opt <- nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
               lower = bnd$lower, upper = bnd$upper, control = control)
 opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
@@ -426,13 +427,14 @@ mcmc <- sample_sparse_tmb(
                  get_rho = get_rho, get_selectivity = get_selectivity,
                  get_sel_like = get_sel_like, get_recruitment_prior = get_recruitment_prior,
                  get_length_like = get_length_like, get_age_like = get_age_like, 
-                 get_cpue_like = get_cpue_like,
+                 get_cpue_like = get_cpue_like, get_tag_like = get_tag_like,
                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
 
+save(mcmc, file = "mcmc_no1.rda")
 plot_sampler_params(fit = mcmc, plot = TRUE)
-decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
+decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
 plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
 
