@@ -365,8 +365,8 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
   "diag<-" <- ADoverload("diag<-")
   n_af <- nrow(af_obs)
   n_age <- dim(catch_pred_fya)[3]
-  lp <- numeric(n_af)
   age_pred <- matrix(0, n_af, n_age)
+  lp <- numeric(n_af)
   for (i in seq_len(n_af)) {
     f <- af_fishery[i]
     y <- af_year[i]
@@ -379,10 +379,10 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
     pred[1] <- sum(catch_pred_fya[f, y, 1:amin])
     pred[n_a] <- sum(catch_pred_fya[f, y, amax:n_age])
     pred <- (pred / sum(pred)) + 1e-6
-    lp[i] <- -af_n[i] * sum(obs * log(pred))
-    lp[i] <- lp[i] + af_n[i] * sum(obs * log(obs))
+    age_pred[i, amin:amax] <- pred
+    lp[i] <- af_n[i] * sum(obs * log(obs)) - af_n[i] * sum(obs * log(pred))
   }
-  return(lp)
+  return(list(pred = age_pred, lp = lp))
 }
 
 
@@ -391,12 +391,11 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  
   n_lf <- nrow(lf_obs)
   n_bins <- 25
   n_age <- dim(catch_pred_fya)[3]
-  lp <- numeric(n_lf)
   lf_pred <- matrix(0, n_lf, n_bins)
+  lp <- numeric(n_lf)
   
   for (i in seq_len(n_lf)) {
     y <- lf_year[i]
@@ -409,25 +408,22 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
     obs <- lf_obs[i,]
     if (mbin > 1) {
       pred[mbin] <- sum(pred[1:mbin])
-      # pred[1:(mbin - 1)] <- 0
       obs[mbin] <- sum(obs[1:mbin])
-      # obs[1:(mbin - 1)] <- 0
       obs <- obs[mbin:n_bins]
       pred <- pred[mbin:n_bins]
     }
-    # lf_pred[i,] <- pred
+    lf_pred[i, mbin:n_bins] <- pred
     lp[i] <- -lf_n[i] * sum(obs * log(pred))
     obs <- obs + 1e-6
     lp[i] <- lp[i] + lf_n[i] * sum(obs * log(obs))
   }
-  return(lp)
+  return(list(pred = lf_pred, lp = lp))
 }
 
 get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll_tau, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  
   n_troll <- length(troll_years)
   troll_sd2 <- troll_sd^2 + troll_tau^2
   pred <- lp <- numeric(n_troll)
@@ -436,19 +432,15 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll
     pred[i] <- number_ysa[iy, 1, 2]
   }
   troll_q <- sum(pred * (troll_obs / troll_sd2)) / sum(pred * (pred / troll_sd2))
-  pred <- pred * troll_q
+  troll_pred <- pred * troll_q
   troll_sig <- sqrt(troll_sd2)
-  troll_res <- (troll_obs - pred) / troll_sig
-  lp <- log(troll_sig) + 0.5 * troll_res^2
-  # troll_pred <- pred
-  # troll_resid <- troll_obs - pred
-  # if (troll_switch > 0) {
-  #   for (i in seq_len(n_troll)) {
-    # }
-  # } else {
-  #   lp[] <- 0
-  # }
-  return(lp)
+  troll_res <- (troll_obs - troll_pred) / troll_sig
+  if (troll_switch > 0) {
+    lp <- log(troll_sig) + 0.5 * troll_res^2
+  } else {
+    lp[] <- 0
+  }
+  return(list(pred = troll_pred, resid = troll_res, lp = lp))
 }
 
 get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
@@ -527,23 +519,22 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
   yy <- y - (first_yr_catch - first_yr)
   F_f <- numeric(n_fishery)
   h_rate_fa <- array(0, dim = c(n_fishery, n_age))
-  h_rate_a <- numeric(n_age)
+  # h_rate_a <- numeric(n_age)
   
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
-      # if (slice_switch_f[f] == 1) {
-      #   Nsum <- sum(sliced_ysfa[y,s,f,] * weight_fya[f,y,]) + 1e-6
-      #   h_rate_fa[f,] <- (catch_obs_ysf[y,s,f] * sliced_ysfa[y,s,f,]) / (number_ysa[y,s,] * Nsum)
-      # } else {
+      if (slice_switch_f[f] == 1) {
+        Nsum <- sum(sliced_ysfa[y,s,f,] * weight_fya[f,y,]) + 1e-6
+        h_rate_fa[f,] <- (catch_obs_ysf[y,s,f] * sliced_ysfa[y,s,f,]) / (number_ysa[y,s,] * Nsum)
+      } else {
         Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
         F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
         h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
         # h_rate_a <- h_rate_a + F_f[f] * sel_fya[f,y,]
-      # }
+      }
     }
   }
   h_rate_a <- colSums(h_rate_fa)
-  
   tmp <- posfun(x = 1 - sum(F_f), eps = 0.001)
   return(list(h_rate_a = h_rate_a, F_f = F_f, penalty = tmp$penalty))
 }

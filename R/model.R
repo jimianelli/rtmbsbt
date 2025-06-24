@@ -41,7 +41,6 @@ sbt_model <- function(parameters, data) {
   M_a <- get_M(min_age, max_age, age_increase_M, par_m0, par_m4, par_m10, par_m30)
   S_a <- exp(-0.5 * M_a)
   phi_ya <- get_phi(par_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
-  
   sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch, 
                              sel_min_age_f, sel_max_age_f, sel_end_f, 
                              sel_change_year_fy, par_sels_init_i, par_sels_change_i)
@@ -94,7 +93,7 @@ sbt_model <- function(parameters, data) {
     }
     number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
     number_ysa[y + 1, 1, n_age] <- number_ysa[y + 1, 1, n_age] + (number_ysa[y, 2, n_age] * (1 - hrate_ysa[y, 2, n_age]) * S_a[n_age])
-    spawning_biomass_y[y + 1] <- sum(number_ysa[y + 1, 1, ] * phi_ya[y + 1,])
+    spawning_biomass_y[y + 1] <- sum(number_ysa[y + 1, 1,] * phi_ya[y + 1,])
     recruitment_y[y + 1] <- get_recruitment(y = y, sbio = spawning_biomass_y[y + 1], B0 = par_B0, alpha, beta, sigma_r = par_sigma_r, rdev_y)
     number_ysa[y + 1, 1, 1] <- recruitment_y[y + 1]
     for (f in seq_len(n_fishery)) {
@@ -128,11 +127,12 @@ sbt_model <- function(parameters, data) {
 
   # Data likelihoods
   
-  lp_lf <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
-                           lf_n, catch_pred_fya, alk_ysal)
-  # lf_pred <- matrix(0, n_lf, 25)
-  lp_af <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
-  af_pred <- matrix(0, n_af, n_age)
+  x <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
+  lp_lf <- x$lp
+  lf_pred <- x$pred
+  x <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
+  lp_af <- x$lp
+  af_pred <- x$pred
   x <- get_cpue_like(cpue_switch, cpue_a1, cpue_a2, cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, par_log_cpue_q, number_ysa, sel_fya)
   lp_cpue <- x$lp
   cpue_pred <- x$pred
@@ -142,7 +142,10 @@ sbt_model <- function(parameters, data) {
   aerial_pred <- x$pred
   aerial_resid <- x$resid
   lp_aerial_tau <- x$lp_aerial_tau
-  lp_troll <- get_troll_like(troll_switch, troll_years, troll_obs, troll_sd, par_troll_tau, number_ysa)
+  x <- get_troll_like(troll_switch, troll_years, troll_obs, troll_sd, par_troll_tau, number_ysa)
+  lp_troll <- x$lp
+  troll_pred <- x$pred
+  troll_resid <- x$resid
   # lp_tags <- get_tag_like(tag_switch, min_K + 1, n_K, n_T, n_I, n_J, 
   #                         first_yr, M_a, hrate_ysa,
   #                         par_hstar_i, tag_release_cta + 1, tag_recap_ctaa + 1,
@@ -193,18 +196,18 @@ sbt_model <- function(parameters, data) {
   REPORT(lp_gt)
   REPORT(nll)
   
+  REPORT(lf_pred)
+  REPORT(af_pred)
   # REPORT(cpue_sigma)
   # REPORT(cpue_omega)
   REPORT(cpue_pred)
   REPORT(cpue_resid)
   REPORT(aerial_pred)
   REPORT(aerial_resid)
-  # REPORT(troll_pred)
-  # REPORT(troll_resid)
+  REPORT(troll_pred)
+  REPORT(troll_resid)
   # REPORT(tag_pred)
   # REPORT(tag_resid)
-  # REPORT(lf_pred)
-  # REPORT(af_pred)
   
   REPORT(M_a)
   REPORT(phi_ya)

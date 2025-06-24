@@ -47,6 +47,7 @@ data <- list(
 )
 
 data <- get_data_old(data_in = data)
+
 data$cpue_years <- data$cpue_years + 1
 data$aerial_years <- data$aerial_years + 1
 data$troll_years <- data$troll_years + 1
@@ -149,9 +150,8 @@ df2 <- data.frame(
   mutate(diff2 = abs(diff1 / ADMB) * 100) %>%
   mutate(diff2 = ifelse(is.finite(diff2), diff2, 0))
 
-df <- bind_rows(df0, df1, df2) 
-
-kbl(df, col.names = c("", "ADMB", "RTMB", "Difference", "Percent difference"), caption = NULL, digits = c(7, 7, 7, 7, 4)) %>%
+bind_rows(df0, df1, df2) %>%
+  kbl(col.names = c("", "ADMB", "RTMB", "Difference", "Percent difference"), caption = NULL, digits = c(7, 7, 7, 7, 4)) %>%
   kable_styling("bordered") %>%
   column_spec(column = 5, color = "white", background = spec_color(df$diff2)) %>%
   group_rows("Parameters", 1, 9) %>%
@@ -428,6 +428,13 @@ mcmc <- sample_sparse_tmb(
                  get_cpue_like = get_cpue_like,
                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
+
+plot_sampler_params(fit = mcmc, plot = TRUE)
+decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
+decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
+decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
+plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
+
 ```
 
 The `nlminb` function finds the same optimum as ADMB:
