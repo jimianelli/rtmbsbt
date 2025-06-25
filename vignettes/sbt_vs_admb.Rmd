@@ -384,7 +384,7 @@ map[["par_log_tag_H_factor"]] <- factor(NA)
 ```
 
 ```{r make-ad-func, echo=TRUE, message=FALSE}
-obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
+obj <- RTMB::MakeADFun(func = cmb(sbt_model_v1, data), parameters = parameters, map = map)
 ```
 
 ```{r get-bnds, echo=TRUE, message=FALSE}
