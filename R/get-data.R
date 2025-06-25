@@ -151,10 +151,10 @@ get_data <- function(data_in) {
 
   data_in$pop_obs <- sbt::POPsv2 %>%
     filter(.data$Comps > 0) %>%
-    mutate(Cohort = .data$Cohort - data_in$first_yr) %>%
-    mutate(CaptureYear = .data$CaptureYear - data_in$first_yr) %>%
+    mutate(Cohort = .data$Cohort - data_in$first_yr + 1) %>%
+    mutate(CaptureYear = .data$CaptureYear - data_in$first_yr + 1) %>%
     mutate(CaptureCov = ifelse(CaptureSwitch == 0, .data$CaptureCov - data_in$min_age, .data$CaptureCov)) %>%
-    mutate(CaptureCov = ifelse(CaptureSwitch == 1, .data$CaptureCov - 1, .data$CaptureCov)) %>%
+    mutate(CaptureCov = ifelse(CaptureSwitch == 1, .data$CaptureCov, .data$CaptureCov)) %>%
     select(Cohort, CaptureYear, CaptureCov, CaptureSwitch, NPOPS, Comps) %>%
     as.matrix()
   
