@@ -82,12 +82,7 @@ map <- list()
 ```
 
 ```{r echo=FALSE, message=FALSE, results="hide"}
-# sbt_src <- "../src"
-# compile(file.path(sbt_src, "sbt_v1.cpp"))
-# dyn.load(dynlib(file.path(sbt_src, "sbt_v1")))
-# obj <- MakeADFun(data = data, parameters = Params, DLL = "sbt_v1")
-data$tag_switch <- 1
-source("../R/model.R")
+source("../R/model_v1.R")
 source("../R/rtmb_functions.R")
 obj <- RTMB::MakeADFun(func = cmb(sbt_model_v1, data), parameters = parameters, map = map)
 rp <- obj$report()
@@ -389,9 +384,6 @@ map[["par_log_tag_H_factor"]] <- factor(NA)
 ```
 
 ```{r make-ad-func, echo=TRUE, message=FALSE}
-# obj <- MakeADFun(data = data, parameters = Params, map = map, random = c(), 
-#                  hessian = TRUE, inner.control = list(maxit = 1000), 
-#                  DLL = "sbt_v1")
 obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
 ```
 
@@ -408,50 +400,24 @@ opt <- nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr, hessian = 
 opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
               lower = bnd$lower, upper = bnd$upper, control = control)
 
-sdr <- sdreport(obj = obj, getJointPrecision = TRUE)
-he <- obj$he()
-he_inv <- solve(he)
-he_inv[1:3, 1:3]
-c2 <- cov2cor(he_inv)
-range(sqrt(diag(he_inv)))
-ii <- which(sqrt(diag(he_inv)) > 21)
-names(obj$par)[ii]
-he_inv[ii]
-he_ch <- chol(he)
-ev <- eigen(he)
-range(ev$values)
-ce <- check_estimability(obj = obj)
-ce[[4]] %>% filter(Param_check != "OK")
+# sdr <- sdreport(obj = obj, getJointPrecision = TRUE)
+# he <- obj$he()
+# he_inv <- solve(he)
+# he_inv[1:3, 1:3]
+# c2 <- cov2cor(he_inv)
+# range(sqrt(diag(he_inv)))
+# ii <- which(sqrt(diag(he_inv)) > 21)
+# names(obj$par)[ii]
+# he_inv[ii]
+# he_ch <- chol(he)
+# ev <- eigen(he)
+# range(ev$values)
+# ce <- check_estimability(obj = obj)
+# ce[[4]] %>% filter(Param_check != "OK")
 # obj$par[1:10]
 # obj$report()$spawning_biomass_y
 # opt$par[1:10]
 # obj$par <- opt$par
-
-library(adnuts)
-# bnd[1,]$lower <- NA
-mcmc <- sample_sparse_tmb(
-  obj = obj, metric = "auto", iter = 1000, chains = 4, cores = 4,
-  control = list(adapt_delta = 0.95), init = "last.par.best",
-  skip_optimization = TRUE, # Can skip for Jacobians
-  # lower = bnd$lower, upper = bnd$upper, # these bounds dont seem to work
-  globals = list(posfun = posfun, get_M = get_M, get_phi = get_phi, 
-                 get_initial_numbers = get_initial_numbers, 
-                 get_recruitment = get_recruitment, get_harvest_rate = get_harvest_rate,
-                 get_rho = get_rho, get_selectivity = get_selectivity,
-                 get_sel_like = get_sel_like, get_recruitment_prior = get_recruitment_prior,
-                 get_length_like = get_length_like, get_age_like = get_age_like, 
-                 get_cpue_like = get_cpue_like, get_tag_like = get_tag_like,
-                 get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
-                 get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
-
-save(mcmc, file = "mcmc_no1.rda")
-load("mcmc_no1.rda")
-plot_sampler_params(fit = mcmc, plot = TRUE)
-decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
-decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
-decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
-plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
-
 ```
 
 The `nlminb` function finds the same optimum as ADMB:
@@ -461,4 +427,31 @@ plot_compare(x = 1931:2023,
              ADMB = lr$Sbio / 1e6, 
              sbt = obj$report()$spawning_biomass_y / 1e6, 
              xlab = "Year", ylab = "Spawning biomass (millions of tonnes)")
+```
+
+```{r run-mcmc, echo=TRUE, results="hide"}
+library(adnuts)
+# bnd[1,]$lower <- NA # test that error thrown by Stan
+# mcmc <- sample_sparse_tmb(
+#   obj = obj, metric = "auto", iter = 1000, chains = 4, cores = 4,
+#   control = list(adapt_delta = 0.95), init = "last.par.best",
+#   skip_optimization = TRUE, # Can skip for Jacobians
+#   # lower = bnd$lower, upper = bnd$upper, # these bounds dont seem to work
+#   globals = list(posfun = posfun, get_M = get_M, get_phi = get_phi, 
+#                  get_initial_numbers = get_initial_numbers, 
+#                  get_recruitment = get_recruitment, get_harvest_rate = get_harvest_rate,
+#                  get_rho = get_rho, get_selectivity = get_selectivity,
+#                  get_sel_like = get_sel_like, get_recruitment_prior = get_recruitment_prior,
+#                  get_length_like = get_length_like, get_age_like = get_age_like, 
+#                  get_cpue_like = get_cpue_like, get_tag_like = get_tag_like,
+#                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
+#                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
+# 
+# save(mcmc, file = "mcmc_no1.rda")
+# load("mcmc_no1.rda")
+# plot_sampler_params(fit = mcmc, plot = TRUE)
+# decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
+# decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
+# decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
+# plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
 ```

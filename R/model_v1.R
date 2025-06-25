@@ -1,3 +1,4 @@
+
 #' The sbt model
 #' 
 #' Obtain the negative log-likelihood (NLL) value from the sbt model.
@@ -9,12 +10,12 @@
 #' @importFrom stats dcauchy
 #' @export
 #' 
-sbt_model <- function(parameters, data) {
+sbt_model_v1 <- function(parameters, data) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
   getAll(data, parameters, warn = FALSE)
-
+  
   # Transformations
   
   par_B0 <- exp(par_log_B0)
@@ -38,33 +39,9 @@ sbt_model <- function(parameters, data) {
   M_a <- get_M(min_age, max_age, age_increase_M, par_m0, par_m4, par_m10, par_m30)
   S_a <- exp(-0.5 * M_a)
   phi_ya <- get_phi(par_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
-  sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch,
-                             sel_min_age_f, sel_max_age_f, sel_end_f,
-                             sel_change_year_fy, par_sels_init_i, par_sels_change_i)
-  # par_log_sel <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6)
-  # sel_fya <- array(0.1, dim = c(n_fishery, n_year, n_age))
-  # lp_sel <- numeric(n_fishery)
-  # for (f in seq_along(n_fishery)) {
-  #   smin <- sel_min_age_f[f]
-  #   smax <- sel_max_age_f[f]
-  #   sy <- as.logical(sel_change_year_fy[f,])
-  #   sel_fya[f, sy, smin:smax] <- exp(par_log_sel[[f]])
-  #   f1 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
-  #   f2 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
-  #   lp_sel[f] <- -dseparable(f1, f2)(par_log_sel[[f]])
-  # }
-  
-  # lp_sel <- get_sel_like(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, 
-  #                        sel_change_year_fy, sel_change_sd_fy, sel_smooth_sd_f, 
-  #                        par_sels_init_i, par_sels_change_i, sel_fya)
-  
-  # length(par_sels_init_i)
-  # length(par_sels_change_i)
-  # 
-  # x <- array(rnorm(100), dim = c(3, 2))
-  # f1 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
-  # f2 <- function(x) dautoreg(x, phi = 0.9, log = TRUE)
-  # -dseparable(f1, f2)(x)
+  sel_fya <- get_selectivity_v1(n_age, max_age, first_yr, first_yr_catch, 
+                                sel_min_age_f, sel_max_age_f, sel_end_f, 
+                                sel_change_year_fy, par_sels_init_i, par_sels_change_i)
   
   # Initial conditions
   
@@ -128,6 +105,9 @@ sbt_model <- function(parameters, data) {
   
   # Likelihoods and priors
   
+  lp_sel <- get_sel_like(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, 
+                         sel_change_year_fy, sel_change_sd_fy, sel_smooth_sd_f, 
+                         par_sels_init_i, par_sels_change_i, sel_fya)
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
   lp_hstar <- 0.1 * sum((log(par_hstar_i) + 6)^2)
   lp_m10 <- 0
@@ -166,7 +146,7 @@ sbt_model <- function(parameters, data) {
                           tag_H_factor = par_tag_H_factor, tag_var_factor, tag_offset)
   # tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
   # tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
-  lp_pop <- get_POP_like(pop_switch, pop_obs, phi_ya, spawning_biomass_y)
+  lp_pop <- get_POP_like_v1(pop_switch, pop_obs, phi_ya, spawning_biomass_y)
   lp_hsp <- get_HSP_like(hsp_switch, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
   lp_gt <- get_GT_like(gt_switch, gt_obs, number_ysa)
   
@@ -235,4 +215,87 @@ sbt_model <- function(parameters, data) {
   ADREPORT(par_sigma_r)
   
   return(nll)
+}
+
+get_selectivity_v1 <- function(n_age, max_age, first_yr, first_yr_catch, 
+                               sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
+                               par_sels_init_i, par_sels_change_i) {
+  
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  n_fishery <- nrow(sel_change_year_fy)
+  n_year <- ncol(sel_change_year_fy)
+  sel_fya <- array(0, dim = c(n_fishery, n_year, n_age))
+  ymin <- first_yr_catch - first_yr + 1
+  ipar <- 1
+  jpar <- 1
+  
+  for (f in seq_len(n_fishery)) {
+    amin <- sel_min_age_f[f] + 1
+    amax <- sel_max_age_f[f] + 1
+    sel_tmp <- numeric(amax - amin + 1)
+    # Initial selectivity for the first year with catch
+    for (a in amin:amax) {
+      sel_tmp[a - amin + 1] <- exp(par_sels_init_i[ipar])
+      ipar <- ipar + 1
+    }
+    mean_tmp <- mean(sel_tmp)
+    for (a in amin:amax) {
+      sel_fya[f, ymin, a] <- sel_tmp[a - amin + 1] / mean_tmp
+    }
+    if (as.logical(sel_end_f[f]) && amax < max_age) {
+      for (a in (amax + 1):n_age) {
+        sel_fya[f, ymin, a] <- sel_fya[f, ymin, amax]
+      }
+    }
+    # Selectivity in subsequent years
+    for (y in (ymin + 1):n_year) {
+      if (sel_change_year_fy[f, y] != 0) {
+        for (a in amin:amax) {
+          sel_tmp[a - amin + 1] <- sel_fya[f, y - 1, a] * exp(par_sels_change_i[jpar])
+          jpar <- jpar + 1
+        }
+        mean_tmp <- mean(sel_tmp)
+        for (a in amin:amax) {
+          sel_fya[f, y, a] <- sel_tmp[a - amin + 1] / mean_tmp
+        }
+        if (as.logical(sel_end_f[f]) && amax < max_age) {
+          for (a in (amax + 1):n_age) {
+            sel_fya[f, y, a] <- sel_fya[f, y, amax]
+          }
+        }
+      } else {
+        sel_fya[f, y, ] <- sel_fya[f, y - 1, ]
+      }
+    }
+  }
+  return(sel_fya)
+}
+
+get_POP_like_v1 <- function(pop_switch, pop_obs, phi_ya, spawning_biomass_y) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  n_pops <- nrow(pop_obs)
+  n_age <- ncol(phi_ya)
+  lp <- numeric(n_pops)
+  for (i in seq_len(n_pops)) {
+    cc <- pop_obs[i, 1] 
+    ba <- pop_obs[i, 2] + 1
+    nP <- pop_obs[i, 3]
+    nC <- pop_obs[i, 4]
+    pp <- (2 * phi_ya[cc, ba]) / spawning_biomass_y[cc] # parental probability
+    # Avoid log(0)
+    # pp <- min(max(pp, 1e-12), 1 - 1e-12) # NEED TO USE THE PENALTY CODE FROM CRA
+    # Binomial log-likelihood
+    # if (pop_switch > 0 && pp > 0) {
+    #if (pp > 0) {
+    lp[i] <- -(nP * log(pp) + (nC - nP) * log(1 - pp))
+    #}# else {
+    #   lp[i] <- -nC * log(1 - pp)
+    # }
+    # }
+  }
+  return(lp)
 }
