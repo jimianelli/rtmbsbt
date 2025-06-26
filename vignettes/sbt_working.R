@@ -183,7 +183,7 @@ mcmc <- sample_sparse_tmb(
                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
 
-# save(mcmc, file = "mcmc_no1.rda")
+save(mcmc, file = "mcmc_no2.rda")
 plot_sampler_params(fit = mcmc, plot = TRUE)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)

@@ -30,7 +30,6 @@ cmb <- function(f, d) function(p) f(p, d)
 #' @param tag_H_factor Numeric scaling factor for incomplete mixing.
 #' @param tag_var_factor Overdispersion factor.
 #' @param tag_offset Offset term for overdispersion.
-#'
 #' @return Negative log-likelihood (scalar) for tag data.
 #' @export
 get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
@@ -38,7 +37,7 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
                          par_hstar_i, tag_release_cta, tag_recap_ctaa, 
                          minI, maxI, maxJ, 
                          shed1, shed2, tag_rep_rates_ya,
-                         tag_H_factor, tag_var_factor, tag_offset) {
+                         tag_H_factor, tag_var_factor) {
   
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -55,7 +54,21 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   
   prR <- tag_pred <- tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
   S1 <- S2 <- f1 <- f2 <- array(0, dim = c(n_K, n_T, n_J))
-  S1star <- S2star <- f1star <- f2star <- array(0, dim = c(n_K, n_T, n_I))
+  S1star <- S2star <- array(0, dim = c(n_K, n_T, n_I))
+  tag_release_adj <- array(0, dim = c(n_K, n_T, n_I))
+  
+  ## calculate number of independent Dirichlet-multinomial likelihood components, 
+  ## i.e., one for every cohort, tagger group and release age, but leaving out those with zero releases 
+  ## and for which the max recapture age = release age (otherwise it would just be n_K * n_T * n_I)
+  ntaglike <- 0
+  for (k in seq_len(n_K)) {
+    for (t in seq_len(n_T)) {
+      for (i in minI[k]:maxI[k]) {
+        if ((tag_release_cta[k, t, i] > 0) & (maxJ[k] > i)) ntaglike <- ntaglike + 1
+      }
+    }
+  }
+  lp <- numeric(ntaglike)
   
   # Survival and exploitation rates for tagged fish by age and tagger
   for (k in seq_len(n_K)) {
@@ -75,10 +88,10 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     for (i in minI[k]:maxI[k]) {
       for (t in seq_len(n_T)) {
         iy <- minK + k - 1 + i
-        S1star[k, t, i] <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy, 2, i + 1]) * exp(-M_a[i + 1] - shed2[t])
-        S2star[k, t, i] <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy, 2, i + 1]) * exp(-M_a[i + 1] - 2 * shed2[t])
-        f1star[k, t, i] <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i + 1] + shed2[t])) * hrate_ysa[iy, 2, i + 1]
-        f2star[k, t, i] <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i + 1] + 2 * shed2[t])) * hrate_ysa[iy, 2, i + 1]
+        S1star[k, t, i] <-  exp(-M_a[i + 1] - shed2[t])
+        S2star[k, t, i] <-  exp(-M_a[i + 1] - 2 * shed2[t])
+        # calculate adjusted tag release numbers by subtracting number of recaptures in year of tagging (taking into account non-reporting)
+        tag_release_adj[k, t, i] <- tag_release_cta[k, t, i] - tag_recap_ctaa[k, t, i, i] / tag_rep_rates_ya[k + i - 2, i]
       }
     }
   }
@@ -88,10 +101,8 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   for (k in seq_len(n_K)) {
     for (t in seq_len(n_T)) {
       for (i in minI[k]:maxI[k]) {
-        for (j in minI[k]:maxJ[k]) {
-          if (j == i) {
-            prR[k, t, i, j] <- (2 * shed1[t] * f1star[k, t, j] - shed1[t]^2 * f2star[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
-          }
+        for (j in i:maxJ[k]) {
+          # no longer include recaptures in year of tagging in likelihood  so deleted case where j = i
           if (j == (i + 1)) {
             prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * f1[k, t, j] - shed1[t]^2 * S2star[k, t, i] * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
           }
@@ -114,8 +125,9 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   for (k in seq_len(n_K)) {
     for (t in seq_len(n_T)) {
       for (i in minI[k]:maxI[k]) {
-        for (j in minI[k]:maxJ[k]) {
-          tag_pred[k, t, i, j] <- tag_release_cta[k, t, i] * prR[k, t, i, j]
+        for (j in (i + 1):maxJ[k]) {
+          tag_pred[k, t, i, j] <- tag_release_adj[k, t, i] * prR[k, t, i, j] 
+          # THE TAG RESID IS WRONG AND NEEDS TO BE OSA RESIDS
           tag_resid[k, t, i, j] <- (tag_recap_ctaa[k, t, i, j] - tag_pred[k, t, i, j]) / 
             sqrt(1e-5 + tag_var_factor * tag_pred[k, t, i, j] * (1 - prR[k, t, i, j]))
         }
@@ -123,41 +135,16 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     }
   }
   
-  # 7) preliminary overdispersion offset
-  tag_offset1 <- 0
-  for (k in seq_len(n_K)) {
-    for (t in seq_len(n_T)) {
-      for (i in minI[k]:maxI[k]) {
-        Nrel <- tag_release_cta[k,t,i]
-        tag_od <- (Nrel - tag_var_factor) / (tag_var_factor - 1)
-        if (tag_od <= 0) tag_od <- 1e-3
-        tag_offset1 <- tag_offset1 + lgamma(tag_od) - lgamma(Nrel + tag_od)
-        totR <- 0 
-        totprR <- 0
-        for (j in i:maxJ[k]) {
-          prR1 <- 1e-6 + tag_recap_ctaa[k,t,i,j] / (1e-6 + Nrel)
-          tag_offset1 <- tag_offset1 + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR1) - lgamma(tag_od * prR1)
-          totR   <- totR   + tag_recap_ctaa[k,t,i,j]
-          totprR <- totprR + prR1
-        }
-        notR    <- Nrel - totR
-        pr_notR <- 1 - totprR
-        tag_offset1 <- tag_offset1 + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
-      }
-    }
-  }
-  
-  # 8) log‐likelihood under beta‐binomial
-  lp <- 0
+  # 8) log-likelihood under beta-binomial
   if (tag_switch > 0) {
-    loglkhd_R <- 0
+    index <- 1
     for (k in seq_len(n_K)) {
       for (t in seq_len(n_T)) {
         for (i in minI[k]:maxI[k]) {
-          Nrel <- tag_release_cta[k,t,i]
-          tag_od <- (Nrel - tag_var_factor) / (tag_var_factor - 1)
+          loglkhd_R <- 0 # loglkhd for cohort k, tagger t and release age i (summed over corresponding recaptures )
+          tag_od <- (tag_release_cta[k,t,i] - tag_var_factor) / (tag_var_factor - 1)
           if (tag_od < 0) tag_od <- 1e-3
-          loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(Nrel + tag_od)
+          loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(tag_release_adj[k,t,i] + tag_od)
           totR <- 0
           totprR <- 0
           for (j in i:maxJ[k]) {
@@ -165,17 +152,161 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
             totR <- totR + tag_recap_ctaa[k,t,i,j]
             totprR <- totprR + prR[k,t,i,j]
           }
-          notR <- Nrel - totR
+          notR <- tag_release_adj[k,t,i] - totR
           pr_notR <- 1 - totprR
           loglkhd_R <- loglkhd_R + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
+          lp[index] <- loglkhd_R
+          index <- index + 1
         }
       }
     }
-    lp <- -loglkhd_R + tag_offset1
   }
-  
   return(lp)
 }
+
+# get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
+#                          first_yr, M_a, hrate_ysa, 
+#                          par_hstar_i, tag_release_cta, tag_recap_ctaa, 
+#                          minI, maxI, maxJ, 
+#                          shed1, shed2, tag_rep_rates_ya,
+#                          tag_H_factor, tag_var_factor, tag_offset) {
+#   
+#   "[<-" <- ADoverload("[<-")
+#   "c" <- ADoverload("c")
+#   "diag<-" <- ADoverload("diag<-")
+#   
+#   hstar_s1_ya <- matrix(0, nrow = n_K, ncol = n_I)
+#   ipar <- 1
+#   for (k in seq_len(n_K)) {
+#     for (i in minI[k]:maxI[k]) {
+#       hstar_s1_ya[k, i] <- par_hstar_i[ipar]
+#       ipar <- ipar + 1
+#     }
+#   }
+#   
+#   prR <- tag_pred <- tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
+#   S1 <- S2 <- f1 <- f2 <- array(0, dim = c(n_K, n_T, n_J))
+#   S1star <- S2star <- f1star <- f2star <- array(0, dim = c(n_K, n_T, n_I))
+#   
+#   # Survival and exploitation rates for tagged fish by age and tagger
+#   for (k in seq_len(n_K)) {
+#     for (j in minI[k]:maxJ[k]) {
+#       iy <- minK + k - 1 + j
+#       hplus <- tag_H_factor * hrate_ysa[iy, 1, j + 1] # factor to account for lack of complete mixing in season 1 
+#       for (t in seq_len(n_T)) {
+#         S1[k, t, j] <- (1 - hplus) * (1 - hrate_ysa[iy, 2, j + 1]) * exp(-M_a[j + 1] - shed2[t])
+#         S2[k, t, j] <- (1 - hplus) * (1 - hrate_ysa[iy, 2, j + 1]) * exp(-M_a[j + 1] - 2 * shed2[t])
+#         f1[k, t, j] <- hplus + (1 - hplus) * exp(-0.5 * (M_a[j + 1] + shed2[t])) * hrate_ysa[iy, 2, j + 1]
+#         f2[k, t, j] <- hplus + (1 - hplus) * exp(-0.5 * (M_a[j + 1] + 2 * shed2[t])) * hrate_ysa[iy, 2, j + 1]
+#       }
+#     }
+#   }
+#   
+#   for (k in seq_len(n_K)) {
+#     for (i in minI[k]:maxI[k]) {
+#       for (t in seq_len(n_T)) {
+#         iy <- minK + k - 1 + i
+#         S1star[k, t, i] <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy, 2, i + 1]) * exp(-M_a[i + 1] - shed2[t])
+#         S2star[k, t, i] <- (1 - hstar_s1_ya[k, i]) * (1 - hrate_ysa[iy, 2, i + 1]) * exp(-M_a[i + 1] - 2 * shed2[t])
+#         f1star[k, t, i] <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i + 1] + shed2[t])) * hrate_ysa[iy, 2, i + 1]
+#         f2star[k, t, i] <- hstar_s1_ya[k, i] + (1 - hstar_s1_ya[k, i]) * exp(-0.5 * (M_a[i + 1] + 2 * shed2[t])) * hrate_ysa[iy, 2, i + 1]
+#       }
+#     }
+#   }
+#   
+#   # Generate probabilities of recapture
+#   # tag_rep_rates_ya: years 1991-1997, ages 1-8
+#   for (k in seq_len(n_K)) {
+#     for (t in seq_len(n_T)) {
+#       for (i in minI[k]:maxI[k]) {
+#         for (j in minI[k]:maxJ[k]) {
+#           if (j == i) {
+#             prR[k, t, i, j] <- (2 * shed1[t] * f1star[k, t, j] - shed1[t]^2 * f2star[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
+#           }
+#           if (j == (i + 1)) {
+#             prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * f1[k, t, j] - shed1[t]^2 * S2star[k, t, i] * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
+#           }
+#           if (j > (i + 1)) {
+#             prodS1 <- 1
+#             prodS2 <- 1
+#             for (s in (i + 1):(j - 1)) {
+#               prodS1 <- prodS1 * S1[k, t, s]
+#               prodS2 <- prodS2 * S2[k, t, s]
+#             }
+#             prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * prodS1 * f1[k, t, j] - 
+#                                   shed1[t]^2 * S2star[k, t, i] * prodS2 * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
+#           }
+#         }
+#       }
+#     }
+#   }
+#   
+#   # Predicted numbers of recaptures and residuals
+#   for (k in seq_len(n_K)) {
+#     for (t in seq_len(n_T)) {
+#       for (i in minI[k]:maxI[k]) {
+#         for (j in minI[k]:maxJ[k]) {
+#           tag_pred[k, t, i, j] <- tag_release_cta[k, t, i] * prR[k, t, i, j]
+#           tag_resid[k, t, i, j] <- (tag_recap_ctaa[k, t, i, j] - tag_pred[k, t, i, j]) / 
+#             sqrt(1e-5 + tag_var_factor * tag_pred[k, t, i, j] * (1 - prR[k, t, i, j]))
+#         }
+#       }
+#     }
+#   }
+#   
+#   # 7) preliminary overdispersion offset
+#   tag_offset1 <- 0
+#   for (k in seq_len(n_K)) {
+#     for (t in seq_len(n_T)) {
+#       for (i in minI[k]:maxI[k]) {
+#         Nrel <- tag_release_cta[k,t,i]
+#         tag_od <- (Nrel - tag_var_factor) / (tag_var_factor - 1)
+#         if (tag_od <= 0) tag_od <- 1e-3
+#         tag_offset1 <- tag_offset1 + lgamma(tag_od) - lgamma(Nrel + tag_od)
+#         totR <- 0 
+#         totprR <- 0
+#         for (j in i:maxJ[k]) {
+#           prR1 <- 1e-6 + tag_recap_ctaa[k,t,i,j] / (1e-6 + Nrel)
+#           tag_offset1 <- tag_offset1 + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR1) - lgamma(tag_od * prR1)
+#           totR   <- totR   + tag_recap_ctaa[k,t,i,j]
+#           totprR <- totprR + prR1
+#         }
+#         notR    <- Nrel - totR
+#         pr_notR <- 1 - totprR
+#         tag_offset1 <- tag_offset1 + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
+#       }
+#     }
+#   }
+#   
+#   # 8) log‐likelihood under beta‐binomial
+#   lp <- 0
+#   if (tag_switch > 0) {
+#     loglkhd_R <- 0
+#     for (k in seq_len(n_K)) {
+#       for (t in seq_len(n_T)) {
+#         for (i in minI[k]:maxI[k]) {
+#           Nrel <- tag_release_cta[k,t,i]
+#           tag_od <- (Nrel - tag_var_factor) / (tag_var_factor - 1)
+#           if (tag_od < 0) tag_od <- 1e-3
+#           loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(Nrel + tag_od)
+#           totR <- 0
+#           totprR <- 0
+#           for (j in i:maxJ[k]) {
+#             loglkhd_R <- loglkhd_R + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR[k,t,i,j]) - lgamma(tag_od * prR[k,t,i,j]) 
+#             totR <- totR + tag_recap_ctaa[k,t,i,j]
+#             totprR <- totprR + prR[k,t,i,j]
+#           }
+#           notR <- Nrel - totR
+#           pr_notR <- 1 - totprR
+#           loglkhd_R <- loglkhd_R + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
+#         }
+#       }
+#     }
+#     lp <- -loglkhd_R + tag_offset1
+#   }
+#   
+#   return(lp)
+# }
 
 #' Aerial Survey Likelihood
 #'
