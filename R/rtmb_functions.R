@@ -129,21 +129,23 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     for (k in seq_len(n_K)) {
       for (t in seq_len(n_T)) {
         for (i in minI[k]:maxI[k]) {
+         if(tag_release_cta[k,t,i]>0 & maxJ[k] > i) {
           loglkhd_R <- 0 # loglkhd for cohort k, tagger t and release age i (summed over corresponding recaptures )
           tag_od <- (tag_release_cta[k,t,i] - tag_var_factor) / (tag_var_factor - 1)
           if (tag_od < 0) tag_od <- 1e-3
           loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(tag_release_adj[k,t,i] + tag_od)
           totR <- totprR <- 0
-          for (j in i:maxJ[k]) {
+          for (j in (i+1):maxJ[k]) {
             loglkhd_R <- loglkhd_R + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR[k,t,i,j]) - lgamma(tag_od * prR[k,t,i,j]) 
             totR <- totR + tag_recap_ctaa[k,t,i,j]
             totprR <- totprR + prR[k,t,i,j]
-          }
+           }
           notR <- tag_release_adj[k,t,i] - totR
           pr_notR <- 1 - totprR
           loglkhd_R <- loglkhd_R + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
-          lp[index] <- loglkhd_R
+          lp[index] <- -loglkhd_R
           index <- index + 1
+         }
         }
       }
     }

@@ -30,7 +30,6 @@ sbt_model <- function(parameters, data) {
   par_troll_tau <- exp(par_log_troll_tau)
   cpue_sigma <- exp(par_log_cpue_sigma)
   cpue_omega <- exp(par_log_cpue_omega)
-  par_hstar_i <- plogis(par_logit_hstar_i)
   par_tag_H_factor <- exp(par_log_tag_H_factor)
   
   # State Variables
@@ -119,7 +118,6 @@ sbt_model <- function(parameters, data) {
   # Likelihoods and priors
   
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
-  lp_hstar <- 0.1 * sum((log(par_hstar_i) + 6)^2)
   lp_m10 <- 0
   lp_h <- 0
   lp_cpue_omega <- 0
@@ -157,7 +155,7 @@ sbt_model <- function(parameters, data) {
   lp_hsp <- get_HSP_like(hsp_switch, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
   lp_gt <- get_GT_like(gt_switch, gt_obs, number_ysa)
   
-  nll <- sum(lp_sel) + lp_rec + lp_hstar + lp_m10 + lp_h + lp_cpue_omega +
+  nll <- sum(lp_sel) + lp_rec  + lp_m10 + lp_h + lp_cpue_omega +
     sum(lp_lf) + sum(lp_af) + sum(lp_cpue) + lp_aerial_tau + sum(lp_aerial) +
     sum(lp_troll) + sum(lp_tags) + sum(lp_pop) + sum(lp_hsp) + sum(lp_gt) + lp_penalty
   
@@ -172,11 +170,9 @@ sbt_model <- function(parameters, data) {
   REPORT(par_m30)
   REPORT(par_h)
   REPORT(par_sigma_r)
-  REPORT(par_hstar_i)
   
   REPORT(lp_sel)
   REPORT(lp_rec)
-  REPORT(lp_hstar)
   REPORT(lp_aerial_tau)
   REPORT(lp_lf)
   REPORT(lp_af)
