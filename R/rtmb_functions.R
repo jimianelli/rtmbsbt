@@ -200,7 +200,6 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
 
 
 get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
-
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
@@ -367,17 +366,18 @@ get_recruitment_prior <- function(rdev_y, sigma_r, tau_ac2) {
 
 get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17, 
                           cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, 
-                          log_cpue_q, number_ysa, sel_fya) {
+                          log_cpue_q, par_cpue_creep, number_ysa, sel_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  
   n_cpue <- length(cpue_obs)
   n_age <- dim(sel_fya)[3]
-  cpue_log_pred <- numeric(n_cpue)
+  cpue_adjust <- cpue_log_pred <- numeric(n_cpue)
+  cpue_adjust[1] <- 1
+  for (i in 2:n_cpue) cpue_adjust[i] <- cpue_adjust[i - 1] + par_cpue_creep
+  
   for (i in seq_len(n_cpue)) {
     y <- cpue_years[i]
-    # Get selectivity for the CPUE ages for this year (fishery 1, by convention)
     cpue_sel <- sel_fya[1, y, 5:n_age]
     cpue_n <- number_ysa[y, 2, 5:n_age]
     cpue_selm <- sel_fya[1, y, (cpue_a1 + 1):(cpue_a2 + 1)]
@@ -390,7 +390,7 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
   if (cpue_switch > 0) {
     lp <- log(cpue_sigma) + 0.5 * cpue_resid^2
   } else {
-    lp <- 0
+    lp <- numeric(n_cpue)
   }
   return(list(pred = cpue_pred, resid = cpue_resid, lp = lp))
 }
@@ -512,6 +512,7 @@ get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y, sr_dep = 
   "diag<-" <- ADoverload("diag<-")
   n_year <- length(rdev_y)
   rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y] - 0.5 * sigma_r^2)
+  # rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev_y[y])
   return(rec)
 }
 
@@ -578,10 +579,41 @@ get_initial_numbers <- function(B0, steep, M_a, phi_ya) {
   return(list(Ninit = R0 * rel_N, R0 = R0, alpha = alpha, beta = beta))
 }
 
+get_selectivity2 <- function(n_age, max_age, first_yr, first_yr_catch, 
+                             sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
+                             par_log_sel) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  n_fishery <- nrow(sel_change_year_fy)
+  n_year <- ncol(sel_change_year_fy)
+  ymin <- first_yr_catch - first_yr + 1
+  sel_fya <- array(0, dim = c(n_fishery, n_year, n_age))
+  for (f in seq_len(n_fishery)) {
+    amin <- sel_min_age_f[f] + 1
+    amax <- sel_max_age_f[f] + 1
+    ipar <- 1
+    for (y in ymin:n_year) {
+      if (sel_change_year_fy[f, y] != 0) {
+        sel_tmp <- exp(par_log_sel[[f]][ipar,])
+        ipar <- ipar + 1
+        sel_fya[f, y, amin:amax] <- sel_tmp / mean(sel_tmp)
+        if (as.logical(sel_end_f[f]) && amax < max_age) {
+          for (a in (amax + 1):n_age) {
+            sel_fya[f, y, a] <- sel_fya[f, y, amax]
+          }
+        }
+      } else {
+        sel_fya[f, y, ] <- sel_fya[f, y - 1, ]
+      }
+    }
+  }
+  return(sel_fya)
+}
+
 get_selectivity <- function(n_age, max_age, first_yr, first_yr_catch, 
                             sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
                             par_sels_init_i, par_sels_change_i) {
-  
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")

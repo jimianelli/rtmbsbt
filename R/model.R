@@ -38,33 +38,20 @@ sbt_model <- function(parameters, data) {
   M_a <- get_M(min_age, max_age, age_increase_M, par_m0, par_m4, par_m10, par_m30)
   S_a <- exp(-0.5 * M_a)
   phi_ya <- get_phi(par_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
-  sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch,
-                             sel_min_age_f, sel_max_age_f, sel_end_f,
-                             sel_change_year_fy, par_sels_init_i, par_sels_change_i)
-  # par_log_sel <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6)
-  # sel_fya <- array(0.1, dim = c(n_fishery, n_year, n_age))
-  # lp_sel <- numeric(n_fishery)
-  # for (f in seq_along(n_fishery)) {
-  #   smin <- sel_min_age_f[f]
-  #   smax <- sel_max_age_f[f]
-  #   sy <- as.logical(sel_change_year_fy[f,])
-  #   sel_fya[f, sy, smin:smax] <- exp(par_log_sel[[f]])
-  #   f1 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
-  #   f2 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
-  #   lp_sel[f] <- -dseparable(f1, f2)(par_log_sel[[f]])
-  # }
-  
-  # lp_sel <- get_sel_like(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, 
-  #                        sel_change_year_fy, sel_change_sd_fy, sel_smooth_sd_f, 
-  #                        par_sels_init_i, par_sels_change_i, sel_fya)
-  
-  # length(par_sels_init_i)
-  # length(par_sels_change_i)
-  # 
-  # x <- array(rnorm(100), dim = c(3, 2))
-  # f1 <- function(x) dautoreg(x, phi = 0.3, log = TRUE)
-  # f2 <- function(x) dautoreg(x, phi = 0.9, log = TRUE)
-  # -dseparable(f1, f2)(x)
+  # for (i in 2:93) phi_ya[i,] <- phi_ya[1,]
+  # sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch,
+  #                            sel_min_age_f, sel_max_age_f, sel_end_f,
+  #                            sel_change_year_fy, par_sels_init_i, par_sels_change_i)
+  par_log_sel_fya <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6)
+  sel_fya <- get_selectivity2(n_age, max_age, first_yr, first_yr_catch,
+                              sel_min_age_f, sel_max_age_f, sel_end_f,
+                              sel_change_year_fy, par_log_sel_fya)
+  lp_sel <- numeric(n_fishery)
+  for (f in seq_len(n_fishery)) {
+    f1 <- function(x) dautoreg(x, phi = exp(par_log_sel_phi[f, 1]), log = TRUE, scale = exp(par_log_sel_scale[f, 1])) # year
+    f2 <- function(x) dautoreg(x, phi = exp(par_log_sel_phi[f, 2]), log = TRUE, scale = exp(par_log_sel_scale[f, 2])) # age
+    lp_sel[f] <- -dseparable(f1, f2)(par_log_sel_fya[[f]])
+  }
   
   # Initial conditions
   
@@ -81,6 +68,7 @@ sbt_model <- function(parameters, data) {
   n_year2 <- n_year - 2
   rdev_y <- par_rdev_y
   for (y in n_year2:n_year) rdev_y[y] <- tau_ac2 * rdev_y[y - 1] + par_rdev_y[y]
+  # rdev_y[] <- 0
   recruitment_y <- numeric(n_year)
   recruitment_y[1] <- R0
   
@@ -126,6 +114,8 @@ sbt_model <- function(parameters, data) {
     }
   }
   
+  # plot(first_yr:2023, spawning_biomass_y, ylim = c(0, max(spawning_biomass_y)))
+  
   # Likelihoods and priors
   
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
@@ -142,7 +132,7 @@ sbt_model <- function(parameters, data) {
   x <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
   lp_af <- x$lp
   af_pred <- x$pred
-  x <- get_cpue_like(cpue_switch, cpue_a1, cpue_a2, cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, par_log_cpue_q, number_ysa, sel_fya)
+  x <- get_cpue_like(cpue_switch, cpue_a1, cpue_a2, cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, par_log_cpue_q, par_cpue_creep, number_ysa, sel_fya)
   lp_cpue <- x$lp
   cpue_pred <- x$pred
   cpue_resid <- x$resid
@@ -166,7 +156,7 @@ sbt_model <- function(parameters, data) {
                           tag_H_factor = par_tag_H_factor, tag_var_factor, tag_offset)
   # tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
   # tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
-  lp_pop <- get_POP_like(pop_switch, pop_obs, phi_ya, spawning_biomass_y)
+  lp_pop <- get_POP_like(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y)
   lp_hsp <- get_HSP_like(hsp_switch, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
   lp_gt <- get_GT_like(gt_switch, gt_obs, number_ysa)
   

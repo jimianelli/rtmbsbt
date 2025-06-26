@@ -187,6 +187,11 @@ plot_compare(x = 0:30, ADMB = lr$Ns[1,] / 1e6, sbt = num[1,1,] / 1e6,
              xlab = "Age", ylab = "Initial numbers (millions)")
 ```
 
+```{r echo=FALSE, message=FALSE, fig.cap="Recruitment deviates each year."}
+plot(1931:2022, lr$Rdev)
+lines(1931:2022, rp$rdev_y)
+```
+
 ```{r echo=FALSE, message=FALSE, fig.cap="Recruitment each year."}
 plot_compare(x = 1931:2023, ADMB = lr$Recruitment / 1e6, 
              sbt = rp$recruitment_y / 1e6,
@@ -399,6 +404,7 @@ opt <- nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr, hessian = 
               lower = bnd$lower, upper = bnd$upper, control = control)
 opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
               lower = bnd$lower, upper = bnd$upper, control = control)
+rp <- obj$report()
 
 # sdr <- sdreport(obj = obj, getJointPrecision = TRUE)
 # he <- obj$he()
