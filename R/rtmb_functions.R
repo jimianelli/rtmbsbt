@@ -849,7 +849,6 @@ get_selectivity2 <- function(n_age, max_age, first_yr, first_yr_catch,
 #'
 #' @return 3D array [fishery, year, age] of selectivity values.
 #' @export
->>>>>>> b284818 (added some docco to rtmb_functions)
 get_selectivity <- function(n_age, max_age, first_yr, first_yr_catch, 
                             sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
                             par_sels_init_i, par_sels_change_i) {
