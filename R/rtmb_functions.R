@@ -237,6 +237,7 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
 #' @param paly Array [length, age, year] of predicted adult distributions at length.
 #' @param spawning_biomass_y Vector of spawning biomass by year.
 #' @return Vector of negative log-likelihood contributions for each observation.
+#' @importFrom RTMB ADoverload
 #' @export
 #'
 get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {

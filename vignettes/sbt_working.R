@@ -182,7 +182,7 @@ data.frame(fishery = data$lf_fishery, value = obj$report()$lp_lf) %>%
 
 library(adnuts)
 mcmc <- sample_sparse_tmb(
-  obj = obj, metric = "auto", iter = 1000, chains = 4, cores = 4,
+  obj = obj, metric = "auto", iter = 1000, warmup = 750, chains = 4, cores = 4,
   # obj = obj, metric = "auto", iter = 2000, chains = 4, cores = 4,
   control = list(adapt_delta = 0.99), init = "last.par.best",
   # lower = Lwr, upper = Upr, # these bounds dont seem to work
@@ -197,11 +197,13 @@ mcmc <- sample_sparse_tmb(
                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
 
-save(mcmc, file = "mcmc_no3.rda")
+save(mcmc, file = "mcmc_no4.rda")
 plot_sampler_params(fit = mcmc, plot = TRUE)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "orig", pars = 151:160)
+library(ellipse)
+library(GGally)
 pairs_rtmb(fit = mcmc, order = "divergent", pars = 1:5)
 plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
