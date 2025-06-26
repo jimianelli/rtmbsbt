@@ -97,9 +97,17 @@ parameters <- list(
   par_log_aerial_sel = data_par1$ln_sel_aerial,
   par_log_troll_tau = log(data_par1$tau_troll),
   par_log_hsp_q = data_par1$lnqhsp, 
-  # par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
   par_log_tag_H_factor = log(data_par1$tag_H_factor)
 )
+
+# par_sel[[6]][139]
+# par_sel[[6]][3,5]
+# which(par_sel[[6]] == par_sel[[6]][94], arr.ind = TRUE)
+# par_sel[[6]][26,3]
+# which(par_sel[[3]] == par_sel[[3]][64], arr.ind = TRUE)
+# which(par_sel[[5]] == par_sel[[5]][313], arr.ind = TRUE)
+# plot(par_sel[[5]][13,])
+# for (i in 1:20) lines(par_sel[[5]][i,])
 
 map <- list()
 map[["par_log_psi"]] <- factor(NA)
@@ -114,6 +122,7 @@ map[["par_log_aerial_tau"]] <- factor(NA)
 map[["par_log_aerial_sel"]] <- factor(rep(NA, 2))
 map[["par_log_hsp_q"]] <- factor(NA)
 map[["par_log_tag_H_factor"]] <- factor(NA)
+# map[["par_log_sel_4"]] <- factor(matrix(NA, nrow = nrow(parameters$par_log_sel_4), ncol = ncol(parameters$par_log_sel_4)))
 map_phi <- matrix(NA, nrow = 6, ncol = 2)
 # map_phi[6,] <- c(1, 2)
 map[["par_log_sel_phi"]] <- factor(map_phi)
@@ -153,6 +162,7 @@ exp(obj$par[names(obj$par) %in% c("par_log_sel_phi", "par_log_sel_scale")])
 
 plot_selectivity(data = data, object = obj)
 plot_selectivity(data = data, object = obj, years = 1954:1991, fisheries = "LL4")
+plot_lf(data = data, object = obj, fishery = "LL1")
 plot_lf(data = data, object = obj, fishery = "LL4")
 plot_af(data = data, object = obj, fishery = "Indonesian")
 plot_af(data = data, object = obj, fishery = "Australian")
@@ -169,8 +179,8 @@ data.frame(fishery = data$lf_fishery, value = obj$report()$lp_lf) %>%
 
 library(adnuts)
 mcmc <- sample_sparse_tmb(
-  # obj = obj, metric = "auto", iter = 1000, chains = 4, cores = 4,
-  obj = obj, metric = "auto", iter = 2000, chains = 4, cores = 4,
+  obj = obj, metric = "auto", iter = 1000, chains = 4, cores = 4,
+  # obj = obj, metric = "auto", iter = 2000, chains = 4, cores = 4,
   control = list(adapt_delta = 0.99), init = "last.par.best",
   # lower = Lwr, upper = Upr, # these bounds dont seem to work
   globals = list(posfun = posfun, get_M = get_M, get_phi = get_phi, 
@@ -189,4 +199,6 @@ plot_sampler_params(fit = mcmc, plot = TRUE)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
+decamod::pairs_rtmb(fit = mcmc, order = "orig", pars = 151:160)
+pairs_rtmb(fit = mcmc, order = "divergent", pars = 1:5)
 plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)

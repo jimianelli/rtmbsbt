@@ -73,30 +73,30 @@ sbt_model <- function(parameters, data) {
   
   # Main population loop
   hrate_ysa  <- array(0, dim = c(n_year + 1, n_season, n_age))
-  F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
+  hrate_ysfa  <- array(0, dim = c(n_year + 1, n_season, n_fishery, n_age))
+  # F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
   catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   fy <- first_yr_catch - first_yr + 1
   n_age1 <- n_age - 1
   lp_penalty <- 0
   
-  slice_switch_f <- numeric(n_fishery)
-  sliced_ysfa <- 1
-  
   for (y in seq_len(n_year)) {
     # Season 1
     if (y >= fy) {
-      hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, slice_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, sliced_ysfa)
+      hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, af_sliced_ysfa)
       hrate_ysa[y,1,] <- hr$h_rate_a
-      F_ysf[y,1,] <- hr$F_f
+      hrate_ysfa[y,1,,] <- hr$h_rate_fa
+      # F_ysf[y,1,] <- hr$F_f
       lp_penalty <- lp_penalty + hr$penalty
     }
     number_ysa[y,2,] <- number_ysa[y,1,] * (1 - hrate_ysa[y,1,]) * S_a
     # Season 2
     if (y >= fy) {
-      hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, slice_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, sliced_ysfa)
+      hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, af_sliced_ysfa)
       hrate_ysa[y,2,] <- hr$h_rate_a
-      F_ysf[y,2,] <- hr$F_f
+      hrate_ysfa[y,2,,] <- hr$h_rate_fa
+      # F_ysf[y,2,] <- hr$F_f
       lp_penalty <- lp_penalty + hr$penalty
     }
     number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
@@ -106,15 +106,14 @@ sbt_model <- function(parameters, data) {
     number_ysa[y + 1, 1, 1] <- recruitment_y[y + 1]
     for (f in seq_len(n_fishery)) {
       for (s in seq_len(n_season)) {
-        catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + F_ysf[y, s, f] * sel_fya[f, y,] * number_ysa[y, s,]
+        catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + hrate_ysfa[y, s, f,] * number_ysa[y, s,]
+        # catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + F_ysf[y, s, f] * sel_fya[f, y,] * number_ysa[y, s,]
         # for (a in seq_len(n_age)) {
         #   catch_pred_ysf[y, s, f] <- catch_pred_ysf[y, s, f] + F_ysf[y, s, f] * sel_fya[f, y, a] * number_ysa[y, s, a] * weight_fya[f, y, a]
       }
     }
   }
-  
-  # plot(first_yr:2023, spawning_biomass_y, ylim = c(0, max(spawning_biomass_y)))
-  
+
   # Likelihoods and priors
   
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
@@ -124,10 +123,10 @@ sbt_model <- function(parameters, data) {
   
   # Data likelihoods
   
-  x <- get_length_like(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
+  x <- get_length_like(removal_switch_f, lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
   lp_lf <- x$lp
   lf_pred <- x$pred
-  x <- get_age_like(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
+  x <- get_age_like(removal_switch_f, af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
   lp_af <- x$lp
   af_pred <- x$pred
   x <- get_cpue_like(cpue_switch, cpue_a1, cpue_a2, cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, par_log_cpue_q, par_cpue_creep, number_ysa, sel_fya)

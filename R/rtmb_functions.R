@@ -638,6 +638,7 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
 #'
 #' Calculates the multinomial likelihood for observed age compositions.
 #'
+#' @param removal_switch_f Vector of year indices.
 #' @param af_year Vector of year indices.
 #' @param af_fishery Vector of fishery indices.
 #' @param af_min_age, af_max_age Vectors of minimum and maximum ages.
@@ -647,7 +648,7 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
 #'
 #' @return List with predicted age compositions and log-likelihoods.
 #' @export
-get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya) {
+get_age_like <- function(removal_switch_f, af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
@@ -668,7 +669,9 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
     pred[n_a] <- sum(catch_pred_fya[f, y, amax:n_age])
     pred <- (pred / sum(pred)) + 1e-6
     age_pred[i, amin:amax] <- pred
-    lp[i] <- af_n[i] * sum(obs * log(obs)) - af_n[i] * sum(obs * log(pred))
+    if (removal_switch_f[f] == 0) {
+      lp[i] <- af_n[i] * sum(obs * log(obs)) - af_n[i] * sum(obs * log(pred))
+    }
   }
   return(list(pred = age_pred, lp = lp))
 }
@@ -678,16 +681,16 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
 #'
 #' Computes likelihood for observed length compositions using ALKs.
 #'
+#' @param removal_switch_f, lf_season, lf_fishery Vectors of indices for observations.
 #' @param lf_year, lf_season, lf_fishery Vectors of indices for observations.
 #' @param lf_minbin Minimum size bin to be aggregated.
 #' @param lf_obs Matrix of observed length proportions.
 #' @param lf_n Vector of effective sample sizes.
 #' @param catch_pred_fya 3D array of predicted catch.
 #' @param alk_ysal 4D array [year, season, age, length_bin] of ALKs.
-#'
 #' @return List with predicted compositions and likelihood contributions.
 #' @export
-get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
+get_length_like <- function(removal_switch_f, lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
                             lf_n, catch_pred_fya, alk_ysal) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -716,9 +719,11 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
       pred <- pred[mbin:n_bins]
     }
     lf_pred[i, mbin:n_bins] <- pred
-    lp[i] <- -lf_n[i] * sum(obs * log(pred))
-    obs <- obs + 1e-6
-    lp[i] <- lp[i] + lf_n[i] * sum(obs * log(obs))
+    if (removal_switch_f[f] == 0) {
+      lp[i] <- -lf_n[i] * sum(obs * log(pred))
+      obs <- obs + 1e-6
+      lp[i] <- lp[i] + lf_n[i] * sum(obs * log(obs))
+    }
   }
   return(list(pred = lf_pred, lp = lp))
 }
@@ -824,18 +829,17 @@ get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y, sr_dep = 
 #'
 #' @param y, s Year and season index.
 #' @param first_yr, first_yr_catch Model and catch start years.
-#' @param slice_switch_f Vector of slice-switch flags.
+#' @param removal_switch_f Vector of slice-switch flags.
 #' @param catch_obs_ysf Observed catch by year-season-fishery.
 #' @param number_ysa 3D array of numbers-at-age.
 #' @param sel_fya Selectivity array.
 #' @param weight_fya Weight-at-age.
-#' @param sliced_ysfa Sliced numbers-at-age.
-#'
+#' @param af_sliced_ysfa Sliced numbers-at-age.
 #' @return List with age-specific harvest rates, fishery F, and penalty term.
 #' @export
-get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
+get_harvest_rate <- function(y, s, first_yr, first_yr_catch, removal_switch_f,
                              catch_obs_ysf, number_ysa, sel_fya, weight_fya,
-                             sliced_ysfa) {
+                             af_sliced_ysfa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
@@ -848,9 +852,9 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
 
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
-      if (slice_switch_f[f] == 1) {
-        Nsum <- sum(sliced_ysfa[y,s,f,] * weight_fya[f,y,]) + 1e-6
-        h_rate_fa[f,] <- (catch_obs_ysf[y,s,f] * sliced_ysfa[y,s,f,]) / (number_ysa[y,s,] * Nsum)
+      if (removal_switch_f[f] == 1) {
+        Nsum <- sum(af_sliced_ysfa[y, s, f,] * weight_fya[f, y,]) + 1e-6
+        h_rate_fa[f,] <- (catch_obs_ysf[yy, s, f] * af_sliced_ysfa[y, s, f,]) / (number_ysa[y, s,] * Nsum)
       } else {
         Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
         F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
@@ -860,7 +864,7 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
   }
   h_rate_a <- colSums(h_rate_fa)
   tmp <- posfun(x = 1 - sum(F_f), eps = 0.001)
-  return(list(h_rate_a = h_rate_a, F_f = F_f, penalty = tmp$penalty))
+  return(list(h_rate_a = h_rate_a, h_rate_fa = h_rate_fa, F_f = F_f, penalty = tmp$penalty))
 }
 
 #' Estimate Temporal Autocorrelation in Recruitment Deviations
