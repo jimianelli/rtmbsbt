@@ -29,11 +29,12 @@ cmb <- function(f, d) function(p) f(p, d)
 #' @param tag_rep_rates_ya Matrix of tag reporting rates by year and age.
 #' @param tag_H_factor Numeric scaling factor for incomplete mixing.
 #' @param tag_var_factor Overdispersion factor.
+#' @param tag_offset Offset term for overdispersion.
 #' @return Negative log-likelihood (scalar) for tag data.
 #' @export
 get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
                          first_yr, M_a, hrate_ysa, 
-                         tag_release_cta, tag_recap_ctaa, 
+                         par_hstar_i, tag_release_cta, tag_recap_ctaa, 
                          minI, maxI, maxJ, 
                          shed1, shed2, tag_rep_rates_ya,
                          tag_H_factor, tag_var_factor) {
@@ -42,9 +43,19 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
   
+  hstar_s1_ya <- matrix(0, nrow = n_K, ncol = n_I)
+  ipar <- 1
+  for (k in seq_len(n_K)) {
+    for (i in minI[k]:maxI[k]) {
+      hstar_s1_ya[k, i] <- par_hstar_i[ipar]
+      ipar <- ipar + 1
+    }
+  }
+  
   prR <- tag_pred <- tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
   S1 <- S2 <- f1 <- f2 <- array(0, dim = c(n_K, n_T, n_J))
-  S1star <- S2star <- tag_release_adj <- array(0, dim = c(n_K, n_T, n_I))
+  S1star <- S2star <- array(0, dim = c(n_K, n_T, n_I))
+  tag_release_adj <- array(0, dim = c(n_K, n_T, n_I))
   
   ## calculate number of independent Dirichlet-multinomial likelihood components, 
   ## i.e., one for every cohort, tagger group and release age, but leaving out those with zero releases 
@@ -96,7 +107,8 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
             prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * f1[k, t, j] - shed1[t]^2 * S2star[k, t, i] * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
           }
           if (j > (i + 1)) {
-            prodS1 <- prodS2 <- 1
+            prodS1 <- 1
+            prodS2 <- 1
             for (s in (i + 1):(j - 1)) {
               prodS1 <- prodS1 * S1[k, t, s]
               prodS2 <- prodS2 * S2[k, t, s]
@@ -129,28 +141,27 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
     for (k in seq_len(n_K)) {
       for (t in seq_len(n_T)) {
         for (i in minI[k]:maxI[k]) {
-         if(tag_release_cta[k,t,i]>0 & maxJ[k] > i) {
           loglkhd_R <- 0 # loglkhd for cohort k, tagger t and release age i (summed over corresponding recaptures )
           tag_od <- (tag_release_cta[k,t,i] - tag_var_factor) / (tag_var_factor - 1)
           if (tag_od < 0) tag_od <- 1e-3
           loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(tag_release_adj[k,t,i] + tag_od)
-          totR <- totprR <- 0
-          for (j in (i+1):maxJ[k]) {
+          totR <- 0
+          totprR <- 0
+          for (j in i:maxJ[k]) {
             loglkhd_R <- loglkhd_R + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR[k,t,i,j]) - lgamma(tag_od * prR[k,t,i,j]) 
             totR <- totR + tag_recap_ctaa[k,t,i,j]
             totprR <- totprR + prR[k,t,i,j]
-           }
+          }
           notR <- tag_release_adj[k,t,i] - totR
           pr_notR <- 1 - totprR
           loglkhd_R <- loglkhd_R + lgamma(notR + tag_od * pr_notR) - lgamma(tag_od * pr_notR)
-          lp[index] <- -loglkhd_R
+          lp[index] <- loglkhd_R
           index <- index + 1
-         }
         }
       }
     }
   }
-  return(list(pred = tag_pred, resid = tag_resid, lp = lp))
+  return(lp)
 }
 
 # get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
@@ -346,19 +357,25 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
     stop("Unknown aerial_switch")
   }
   aerial_pred <- numeric(n_aerial)
+  axx <- 1:3
   for (i in seq_len(n_aerial)) {
     y <- aerial_years[i]
-    for (a in 1:3) { # Ages 2,3,4 = indices 3,4,5 (1-based)
-      aerial_pred[i] <- aerial_pred[i] + number_ysa[y, 1, a + 2] * weight_fya[6, y, a + 2] * aerial_sel[a]
-    }
+    aerial_pred[i] <- sum(number_ysa[y, 1, axx + 2] * weight_fya[6, y, axx + 2] * aerial_sel[axx])
+    #for (a in 1:3) { # Ages 2,3,4 = indices 3,4,5 (1-based)
+    #  aerial_pred[i] <- aerial_pred[i] + number_ysa[y, 1, a + 2] * weight_fya[6, y, a + 2] * aerial_sel[a]
+    #}
   }
   aerial_resid <- log(aerial_obs) - log(aerial_pred) # Residuals (log obs - log pred)
   aerial_log_q <- sum(cov_inv %*% aerial_resid) / sum(cov_inv) # Estimate log_q
   aerial_resid <- aerial_resid - aerial_log_q
   aerial_pred <- aerial_pred * exp(aerial_log_q) # scale predictions
+  aerial_log_pred <- log(aerial_pred) 
+  aerial_log_obs <- log(aerial_obs) 
+  aerial_log_obs <- OBS(aerial_log_obs) # flat to simulate
   lp_aerial_tau <- 0.5 * log(det(cov_matrix))
   if (aerial_switch > 0) {
-    lp <- 0.5 * as.vector(aerial_resid %*% cov_inv %*% aerial_resid) # Mahalanobis term: 0.5 * x' Sigma^{-1} x
+    #lp <- 0.5 * as.vector(aerial_resid %*% cov_inv %*% aerial_resid) # Mahalanobis term: 0.5 * x' Sigma^{-1} x
+    lp <- -RTMB::dmvnorm(aerial_log_obs,aerial_log_pred,cov_matrix,log=TRUE)
   } else {
     lp <- 0
   }
@@ -386,6 +403,9 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) 
   n_pops <- nrow(pop_obs)
   n_age <- ncol(phi_ya)
   lp <- numeric(n_pops)
+  nP <- pop_obs[, 5]
+  nP <- OBS(nP) # tag it for simulation
+
   for (i in seq_len(n_pops)) {
 
     # adult has a direct age
@@ -397,7 +417,6 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) 
       aa <- pop_obs[i, 3] + 1 # estimated age of adult @ time of capture
       ba <- ifelse(aa-(yy-cc) < 1,1,aa-(yy-cc))
       ba <- min(ba,n_age)
-      nP <- pop_obs[i, 5]
       nC <- pop_obs[i, 6]
       pp <- (2 * phi_ya[cc, ba]) / spawning_biomass_y[cc] # parental probability
 
@@ -416,8 +435,11 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) 
       ba <- arng - (yy - cc)
       pp <- (2 / spawning_biomass_y[cc]) * sum(paly[ll,arng,yy] * phi_ya[cc, ba]) 
     }
-    lp[i] <- -(nP * log(pp) + (nC - nP) * log(1 - pp)) 
+
+    lp[i] <- -dbinom(nP[i], nC, pp, log=TRUE)
+    #lp[i] <- -(nP * log(pp) + (nC - nP) * log(1 - pp)) 
   }
+
   return(lp)
 }
 
@@ -455,12 +477,15 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
     # Use season 2 for numbers-at-age of adults
     gamx_ya[y,] <- number_ysa[y, 2,] * phi_ya[y,] / spawning_biomass_y[y]
   }
+
+  nK <- hsp_obs[, 5] 
+  nK <- OBS(nK) # tag it for simulation
+
   for (i in seq_len(n_hsp)) {
     cmin <- hsp_obs[i, 1] + 1
     cmax <- hsp_obs[i, 2] + 1
     cdif <- hsp_obs[i, 3]
     nC <- hsp_obs[i, 4]
-    nK <- hsp_obs[i, 5]
     xtmp <- 0
     for (a in seq_len(n_age)) {
       # Step 2: calculate cumulative survival between c1 and c2 given reference adult age
@@ -491,10 +516,11 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
     pp <- 4 * hsp_q * xtmp / spawning_biomass_y[cmax]
     phsp <- pp * hsp_false_negative
     
+    lp[i] <- -dbinom(nK[i], nC, pp, log=TRUE)
     # Likelihood calculation
     # if (hsp_switch > 0 && phsp > 0) {
       # if (nK > 0) {
-        lp[i] <- -(nK * log(phsp) + (nC - nK) * log(1 - phsp))
+        #lp[i] <- -(nK * log(phsp) + (nC - nK) * log(1 - phsp))
       # } else {
       #   lp[i] <- -nC * log(1 - phsp)
       # }
@@ -502,6 +528,7 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
     #   lp[i] <- 0
     # }
   }
+
   return(lp)
 }
 
@@ -624,13 +651,17 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
     cpue_log_pred[i] <- log(cpue_adjust[i]) + cpue_omega * log(tmpN)
   }
   cpue_log_pred <- cpue_log_pred - log(mean(exp(cpue_log_pred))) + log_cpue_q
+  cpue_log_obs <- log(cpue_obs)
+  cpue_log_obs <- OBS(cpue_log_obs)
   cpue_pred <- exp(cpue_log_pred)
   cpue_resid <- (log(cpue_obs) - cpue_log_pred) / cpue_sigma
   if (cpue_switch > 0) {
-    lp <- log(cpue_sigma) + 0.5 * cpue_resid^2
+    #lp <- log(cpue_sigma) + 0.5 * cpue_resid^2
+    lp <- -dnorm(cpue_log_obs,cpue_log_pred,cpue_sigma,log=TRUE)
   } else {
     lp <- numeric(n_cpue)
   }
+
   return(list(pred = cpue_pred, resid = cpue_resid, lp = lp))
 }
 
@@ -754,9 +785,14 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll
   }
   troll_q <- sum(pred * (troll_obs / troll_sd2)) / sum(pred * (pred / troll_sd2))
   troll_pred <- pred * troll_q
+  troll_log_pred <- log(troll_pred)
   troll_sig <- sqrt(troll_sd2)
+  troll_log_obs <- log(troll_obs)
+  troll_log_obs <- OBS(troll_log_obs) # flag it for simulation
   troll_res <- (troll_obs - troll_pred) / troll_sig
-  if (troll_switch > 0) lp <- log(troll_sig) + 0.5 * troll_res^2
+  #if (troll_switch > 0) lp <- log(troll_sig) + 0.5 * troll_res^2
+  if (troll_switch > 0) lp <- -dnorm(troll_log_obs,troll_log_pred,troll_sig,log=TRUE) 
+  
   return(list(pred = troll_pred, resid = troll_res, lp = lp))
 }
 
@@ -776,6 +812,8 @@ get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
   "diag<-" <- ADoverload("diag<-")
   n_gt <- nrow(gt_obs)
   lp <- numeric(n_gt)
+  nrec <- gt_obs[, 6] 
+  nrec <- OBS(nrec) # flag it for simulation
   gt_q <- 1  # hardcoded in C++; could be data/parameter if needed
   for (i in seq_len(n_gt)) {
     yrel <- gt_obs[i, 1] + 1  # release year index (1-based)
@@ -783,14 +821,17 @@ get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
     # yrec <- gt_obs[i, 3] # not used here
     nrel <- gt_obs[i, 4]
     nscan <- gt_obs[i, 5]
-    nrec <- gt_obs[i, 6]
+    
     # Expected probability of recapture. Uses season 1 numbers-at-age.
     pgt <- nrel / (gt_q * number_ysa[yrel, 1, arel])
     # Avoid log(0) and log(negative) by bounding pgt
     # pgt <- min(max(pgt, 1e-10), 1 - 1e-10)
     # Binomial log-likelihood
-    lp[i] <- nrec * log(pgt) + (nscan - nrec) * log(1 - pgt)
+    #lp[i] <- nrec * log(pgt) + (nscan - nrec) * log(1 - pgt)
+   
+    lp[i] <- -dbinom(nrec[i], nscan, pgt, log=TRUE)
   }
+
   if (gt_switch > 0) {
     return(-lp)
   } else {
