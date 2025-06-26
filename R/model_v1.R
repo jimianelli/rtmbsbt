@@ -135,7 +135,7 @@ sbt_model_v1 <- function(parameters, data) {
   lp_troll <- x$lp
   troll_pred <- x$pred
   troll_resid <- x$resid
-  lp_tags <- get_tag_like(tag_switch, min_K + 1, n_K, n_T, n_I, n_J,
+  lp_tags <- get_tag_like(tag_switch, minK = min_K + 1, n_K, n_T, n_I, n_J,
                           first_yr, M_a, hrate_ysa,
                           par_hstar_i, tag_release_cta, tag_recap_ctaa,
                           minI = tag_rel_min_age,

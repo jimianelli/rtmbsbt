@@ -83,7 +83,7 @@ map <- list()
 
 ```{r echo=FALSE, message=FALSE, results="hide"}
 source("../R/model_v1.R")
-source("../R/rtmb_functions.R")
+# source("../R/rtmb_functions.R")
 obj <- RTMB::MakeADFun(func = cmb(sbt_model_v1, data), parameters = parameters, map = map)
 rp <- obj$report()
 # note that when catch and rec devs are all set to zero the SSB is not flat.
@@ -188,8 +188,9 @@ plot_compare(x = 0:30, ADMB = lr$Ns[1,] / 1e6, sbt = num[1,1,] / 1e6,
 ```
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Recruitment deviates each year."}
-plot(1931:2022, lr$Rdev)
-lines(1931:2022, rp$rdev_y)
+plot_compare(x = 1931:2022, ADMB = lr$Rdev, sbt = rp$rdev_y, 
+             xlab = "Year", ylab = "Recruitment deviates") +
+  scale_y_continuous(limits = c(NA, NA))
 ```
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Recruitment each year."}
@@ -200,8 +201,7 @@ plot_compare(x = 1931:2023, ADMB = lr$Recruitment / 1e6,
 ```
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Total number of inidividuals each year."}
-plot_compare(x = 1931:2023, 
-             ADMB = rowSums(lr$Ns), sbt = rowSums(num[,1,]), 
+plot_compare(x = 1931:2023, ADMB = rowSums(lr$Ns), sbt = rowSums(num[,1,]), 
              xlab = "Year", ylab = "Total number")
 ```
 
@@ -350,26 +350,27 @@ Now the model is optimised using `nlminb` to see if `TMB` produces the same resu
 make the initial values a little different:
 
 ```{r get-inits, echo=TRUE, message=FALSE}
-Params <- list(par_log_B0 = 17,
-               par_log_psi = log(data_par1$psi),
-               par_log_m0 = log(data_par1$m0), 
-               par_log_m4 = log(0.1),
-               par_log_m10 = log(data_par1$m10), 
-               par_log_m30 = log(0.5),
-               par_log_h = log(data_par1$steep), 
-               par_log_sigma_r = log(lr$sigma.r), 
-               par_rdev_y = rnorm(n = data_par1$Reps, sd = 0.1),
-               par_sels_init_i = data_par1$par_sels_init_i, 
-               par_sels_change_i = data_par1$par_sels_change_i,
-               par_log_cpue_q = -0.02,
-               par_log_cpue_sigma = log(data_par1$sigma_cpue),
-               par_log_cpue_omega = log(data_par1$cpue_omega),
-               par_log_aerial_tau = log(data_par1$tau_aerial),
-               par_log_aerial_sel = data_par1$ln_sel_aerial,
-               par_log_troll_tau = log(0.4),
-               par_log_hsp_q = data_par1$lnqhsp, 
-               par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
-               par_log_tag_H_factor = log(data_par1$tag_H_factor)
+Params <- list(
+  par_log_B0 = 17,
+  par_log_psi = log(data_par1$psi),
+  par_log_m0 = log(data_par1$m0), 
+  par_log_m4 = log(0.1),
+  par_log_m10 = log(data_par1$m10), 
+  par_log_m30 = log(0.5),
+  par_log_h = log(data_par1$steep), 
+  par_log_sigma_r = log(lr$sigma.r), 
+  par_rdev_y = rnorm(n = data_par1$Reps, sd = 0.1),
+  par_sels_init_i = data_par1$par_sels_init_i, 
+  par_sels_change_i = data_par1$par_sels_change_i,
+  par_log_cpue_q = -0.02,
+  par_log_cpue_sigma = log(data_par1$sigma_cpue),
+  par_log_cpue_omega = log(data_par1$cpue_omega),
+  par_log_aerial_tau = log(data_par1$tau_aerial),
+  par_log_aerial_sel = data_par1$ln_sel_aerial,
+  par_log_troll_tau = log(0.4),
+  par_log_hsp_q = data_par1$lnqhsp, 
+  par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
+  par_log_tag_H_factor = log(data_par1$tag_H_factor)
 )
 ```
 
@@ -399,13 +400,11 @@ bnd <- get_bounds(obj = obj)
 
 ```{r run-nlminb, echo=TRUE, results="hide"}
 control <- list(eval.max = 10000, iter.max = 10000)
-
 opt <- nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
               lower = bnd$lower, upper = bnd$upper, control = control)
 opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
               lower = bnd$lower, upper = bnd$upper, control = control)
 rp <- obj$report()
-
 # sdr <- sdreport(obj = obj, getJointPrecision = TRUE)
 # he <- obj$he()
 # he_inv <- solve(he)
@@ -460,4 +459,26 @@ library(adnuts)
 # decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 # decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
 # plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
+```
+
+```{r run-like-prof, echo=TRUE, results="hide"}
+source("../R/profile.R")
+library(Matrix)
+prof_m4 <- tmbprofile2(obj = obj, name = "par_log_m4", ytol = 2)
+# plot_profile(x = prof_m4, lab = "log(M4)")
+
+df <- data.frame(prof_m4) %>%
+  rename(par = 1, total = value) %>%
+  pivot_longer(cols = !par) %>%
+  group_by(name) %>%
+  mutate(value = value - min(value)) %>%
+  filter(!name %in% c("Penalty"))
+
+p <- ggplot(data = df, aes(x = exp(par), y = value, color = name)) +
+  geom_line() +
+  # facet_wrap(name ~ ., scales = "free_y") +
+  geom_line(data = df %>% filter(name == "total"), lwd = 1.1) +
+  labs(x = "M")
+library(plotly)
+ggplotly(p)
 ```

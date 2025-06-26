@@ -127,6 +127,7 @@ obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map
 # obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), 
 #                        parameters = parameters, map = map, random = c("par_log_sel_6"))
 # note that when catch and rec devs are all set to zero the SSB is not flat.
+unique(names(obj$par))
 obj$fn()
 
 Params <- parameters

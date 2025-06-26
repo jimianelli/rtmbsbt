@@ -22,6 +22,7 @@
 tmbprofile2 <- function(obj, name, lincomb, h = 1e-04, ytol = 2, ystep = 0.1,
                         maxit = ceiling(5 * ytol / ystep), parm.range = c(-Inf, Inf),
                         slice = FALSE, adaptive = TRUE, trace = TRUE) {
+  
   restore.on.exit <- c("last.par.best", "random.start", "value.best", "last.par", "inner.control", "tracemgc")
   oldvars <- sapply(restore.on.exit, get, envir = obj$env, simplify = FALSE)
   restore.oldvars <- function() {
@@ -79,7 +80,6 @@ tmbprofile2 <- function(obj, name, lincomb, h = 1e-04, ytol = 2, ystep = 0.1,
         -sum(obj$report()$lp_hsp),
         -sum(obj$report()$lp_gt)
       )
-      #-sum(obj$report()$jacobians),
       return(dlist)
     }
   } else {
@@ -110,7 +110,6 @@ tmbprofile2 <- function(obj, name, lincomb, h = 1e-04, ytol = 2, ystep = 0.1,
       dlist <- list()
       dlist$objective <- ans$objective
       dlist$ll <- c(
-        # priors
         -sum(
           obj$report()$lp_hstar,
           (obj$report()$lp_aerial_tau),
@@ -198,7 +197,7 @@ tmbprofile2 <- function(obj, name, lincomb, h = 1e-04, ytol = 2, ystep = 0.1,
       }
     }
     ans <- cbind(data.frame(x = x + that, y = y), z)
-    names(ans) <- c(name, "value", "prior", "penalty", "jacobian", "tag", "cpue", "sexr", "lf", "catch")
+    names(ans) <- c(name, "value", "Prior", "Penalty", "Sel", "Rec", "LF", "AF", "CPUE", "Aerial", "Troll", "Tag", "POP", "HSP", "GT")
     ans
   }
 
@@ -264,34 +263,34 @@ plot_profile <- function(x, y = NULL, lab = NULL, rescale = TRUE) {
   par_name <- names(x)[1]
   if (is.null(lab)) lab <- par_name
 
-  if (!is.null(y)) {
-    post2 <- y %>% pivot_longer(cols = !par)
-    newdata <- data.frame(par = seq(min(y$par), max(y$par), length.out = 1000))
-    par_gam <- list()
-    par_gam[[1]] <- gam(total ~ s(par, bs = "cs"), data = y)
-    par_gam[[2]] <- gam(tag ~ s(par, bs = "cs"), data = y)
-    par_gam[[3]] <- gam(sexr ~ s(par, bs = "cs"), data = y)
-    par_gam[[4]] <- gam(lf ~ s(par, bs = "cs"), data = y)
-    par_gam[[5]] <- gam(cpue ~ s(par, bs = "cs"), data = y)
-    par_gam[[6]] <- gam(prior ~ s(par, bs = "cs"), data = y)
-    par_smooth <- list()
-    for (i in 1:length(par_gam)) par_smooth[[i]] <- predict(par_gam[[i]], newdata = newdata)
-    mcmc_min <- data.frame(
-      name = c("total", "tag", "sexr", "lf", "cpue", "prior"),
-      value = as.numeric(lapply(par_smooth, min))
-    )
-    dev_exp <- data.frame(
-      name = c("total", "tag", "sexr", "lf", "cpue", "prior"),
-      value = paste0("Dev. exp.=", round(100 * as.numeric(lapply(par_gam, function(x) summary(x)$dev.expl)), 1), "%")
-    )
-  }
+  # if (!is.null(y)) {
+  #   post2 <- y %>% pivot_longer(cols = !par)
+  #   newdata <- data.frame(par = seq(min(y$par), max(y$par), length.out = 1000))
+  #   par_gam <- list()
+  #   par_gam[[1]] <- gam(total ~ s(par, bs = "cs"), data = y)
+  #   par_gam[[2]] <- gam(tag ~ s(par, bs = "cs"), data = y)
+  #   par_gam[[3]] <- gam(sexr ~ s(par, bs = "cs"), data = y)
+  #   par_gam[[4]] <- gam(lf ~ s(par, bs = "cs"), data = y)
+  #   par_gam[[5]] <- gam(cpue ~ s(par, bs = "cs"), data = y)
+  #   par_gam[[6]] <- gam(prior ~ s(par, bs = "cs"), data = y)
+  #   par_smooth <- list()
+  #   for (i in 1:length(par_gam)) par_smooth[[i]] <- predict(par_gam[[i]], newdata = newdata)
+  #   mcmc_min <- data.frame(
+  #     name = c("total", "tag", "sexr", "lf", "cpue", "prior"),
+  #     value = as.numeric(lapply(par_smooth, min))
+  #   )
+  #   dev_exp <- data.frame(
+  #     name = c("total", "tag", "sexr", "lf", "cpue", "prior"),
+  #     value = paste0("Dev. exp.=", round(100 * as.numeric(lapply(par_gam, function(x) summary(x)$dev.expl)), 1), "%")
+  #   )
+  # }
 
   df <- data.frame(x) %>%
     rename(par = 1, total = value) %>%
     pivot_longer(cols = !par) %>%
     filter(!name %in% c("catch", "jacobian", "penalty"))
 
-  if (!is.null(y) & rescale) {
+  # if (!is.null(y) & rescale) {
     mle_prof_min <- df %>%
       group_by(name) %>%
       summarise(value = min(value))
@@ -301,20 +300,22 @@ plot_profile <- function(x, y = NULL, lab = NULL, rescale = TRUE) {
     df <- df %>%
       left_join(ll_diff, by = join_by(name)) %>%
       mutate(value = value + diff)
-  }
+  # }
 
-  if (!is.null(y)) {
-    p <- ggplot(data = post2, aes(x = par, y = value, color = name)) +
-      geom_vline(xintercept = obj$par[par_name], linetype = "dashed") +
-      geom_point(color = "black", alpha = 0.25) +
-      geom_smooth(se = FALSE, color = "black", alpha = 0.25) +
-      geom_label(data = dev_exp, aes(x = -Inf, y = Inf, label = value), hjust = 0, vjust = 1, color = "black", label.r = unit(0, "lines")) +
-      geom_line(data = df, linewidth = 1.5)
-  } else {
+  # if (!is.null(y)) {
+  #   p <- ggplot(data = post2, aes(x = par, y = value, color = name)) +
+  #     geom_vline(xintercept = obj$par[par_name], linetype = "dashed") +
+  #     geom_point(color = "black", alpha = 0.25) +
+  #     geom_smooth(se = FALSE, color = "black", alpha = 0.25) +
+  #     geom_label(data = dev_exp, aes(x = -Inf, y = Inf, label = value), hjust = 0, vjust = 1, color = "black", label.r = unit(0, "lines")) +
+  #     geom_line(data = df, linewidth = 1.5)
+  # } else {
     p <- ggplot(data = df, aes(x = par, y = value, color = name)) +
       geom_vline(xintercept = obj$par[par_name], linetype = "dashed") +
       geom_line(data = df, linewidth = 1.5)
-  }
-  p + facet_wrap(name ~ ., scales = "free_y") +
+  # }
+  p + 
+    # facet_wrap(name ~ ., scales = "free_y") +
     labs(x = lab, y = "Log-likelihood", color = "Component")
+  return(p)
 }
