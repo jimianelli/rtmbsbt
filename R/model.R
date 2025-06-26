@@ -14,7 +14,10 @@ sbt_model <- function(parameters, data) {
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
   getAll(data, parameters, warn = FALSE)
-
+  # aerial_log_obs <- OBS(aerial_log_obs)
+  # cpue_log_obs <- OBS(cpue_log_obs)
+  # troll_log_obs <- OBS(troll_log_obs)
+  
   # Transformations
   
   par_B0 <- exp(par_log_B0)
@@ -62,7 +65,6 @@ sbt_model <- function(parameters, data) {
   number_ysa[1,1,] <- init$Ninit
   spawning_biomass_y <- numeric(n_year + 1)
   spawning_biomass_y[1] <- par_B0 # sum(number_ysa[1,1,] * phi_ya[1,])
-  
   tau_ac2 <- get_rho(first_yr, last_yr, par_rdev_y)
   n_year2 <- n_year - 2
   rdev_y <- par_rdev_y
@@ -71,7 +73,6 @@ sbt_model <- function(parameters, data) {
   recruitment_y <- numeric(n_year)
   recruitment_y[1] <- R0
   
-  # Main population loop
   hrate_ysa  <- array(0, dim = c(n_year + 1, n_season, n_age))
   hrate_ysfa  <- array(0, dim = c(n_year + 1, n_season, n_fishery, n_age))
   # F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
@@ -80,6 +81,8 @@ sbt_model <- function(parameters, data) {
   fy <- first_yr_catch - first_yr + 1
   n_age1 <- n_age - 1
   lp_penalty <- 0
+  
+  # Main population loop
   
   for (y in seq_len(n_year)) {
     # Season 1
@@ -114,14 +117,14 @@ sbt_model <- function(parameters, data) {
     }
   }
 
-  # Likelihoods and priors
+  # Priors
   
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
   lp_m10 <- 0
   lp_h <- 0
   lp_cpue_omega <- 0
   
-  # Data likelihoods
+  # Likelihoods
   
   x <- get_length_like(removal_switch_f, lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
   lp_lf <- x$lp
@@ -169,6 +172,8 @@ sbt_model <- function(parameters, data) {
   REPORT(par_m30)
   REPORT(par_h)
   REPORT(par_sigma_r)
+  REPORT(cpue_sigma)
+  REPORT(cpue_omega)
   
   REPORT(lp_sel)
   REPORT(lp_rec)
@@ -186,8 +191,6 @@ sbt_model <- function(parameters, data) {
   
   REPORT(lf_pred)
   REPORT(af_pred)
-  # REPORT(cpue_sigma)
-  # REPORT(cpue_omega)
   REPORT(cpue_pred)
   REPORT(cpue_resid)
   REPORT(aerial_pred)

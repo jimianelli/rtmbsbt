@@ -65,11 +65,11 @@ plot(exp(par_sel[[1]][1,]), type = "l")
 for (i in 2:10) lines(exp(par_sel[[1]][i,]), col = i)
 
 sel_phi <- matrix(0, nrow = 6, ncol = 2)
-sel_phi[,1] <- c(0.7, 0.7, 0.7, 0.7, 0.7, 0.5) # year
-sel_phi[,2] <- c(0.9, 0.9, 0.9, 0.9, 0.9, 0.5) # age
 sel_scale <- matrix(0, nrow = 6, ncol = 2)
-sel_scale[,1] <- c(0.8, 0.8, 0.8, 0.8, 1.2, 2) # year
-sel_scale[,2] <- c(0.8, 0.8, 0.8, 0.8, 0.5, 2) # age
+sel_phi[,1] <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
+sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
+sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # year
+sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # age
 
 parameters <- list(
   par_log_B0 = data_par1$ln_B0,
@@ -135,8 +135,8 @@ source("../R/rtmb_functions.R")
 obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
 # obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), 
 #                        parameters = parameters, map = map, random = c("par_log_sel_6"))
-# note that when catch and rec devs are all set to zero the SSB is not flat.
 unique(names(obj$par))
+obj$report()$lp_pop
 obj$fn()
 
 Params <- parameters
@@ -160,6 +160,9 @@ ce[[4]] %>% filter(Param_check != "OK")
 
 exp(obj$par[names(obj$par) %in% c("par_log_sel_phi", "par_log_sel_scale")])
 
+source("../../sbt/R/plot-selectivity.R")
+library(scales)
+library(ggridges)
 plot_selectivity(data = data, object = obj)
 plot_selectivity(data = data, object = obj, years = 1954:1991, fisheries = "LL4")
 plot_lf(data = data, object = obj, fishery = "LL1")
@@ -194,7 +197,7 @@ mcmc <- sample_sparse_tmb(
                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
 
-save(mcmc, file = "mcmc_no2.rda")
+save(mcmc, file = "mcmc_no3.rda")
 plot_sampler_params(fit = mcmc, plot = TRUE)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
