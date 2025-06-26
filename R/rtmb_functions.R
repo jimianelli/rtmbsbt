@@ -29,12 +29,11 @@ cmb <- function(f, d) function(p) f(p, d)
 #' @param tag_rep_rates_ya Matrix of tag reporting rates by year and age.
 #' @param tag_H_factor Numeric scaling factor for incomplete mixing.
 #' @param tag_var_factor Overdispersion factor.
-#' @param tag_offset Offset term for overdispersion.
 #' @return Negative log-likelihood (scalar) for tag data.
 #' @export
 get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
                          first_yr, M_a, hrate_ysa, 
-                         par_hstar_i, tag_release_cta, tag_recap_ctaa, 
+                         tag_release_cta, tag_recap_ctaa, 
                          minI, maxI, maxJ, 
                          shed1, shed2, tag_rep_rates_ya,
                          tag_H_factor, tag_var_factor) {
@@ -43,19 +42,9 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
   
-  hstar_s1_ya <- matrix(0, nrow = n_K, ncol = n_I)
-  ipar <- 1
-  for (k in seq_len(n_K)) {
-    for (i in minI[k]:maxI[k]) {
-      hstar_s1_ya[k, i] <- par_hstar_i[ipar]
-      ipar <- ipar + 1
-    }
-  }
-  
   prR <- tag_pred <- tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
   S1 <- S2 <- f1 <- f2 <- array(0, dim = c(n_K, n_T, n_J))
-  S1star <- S2star <- array(0, dim = c(n_K, n_T, n_I))
-  tag_release_adj <- array(0, dim = c(n_K, n_T, n_I))
+  S1star <- S2star <- tag_release_adj <- array(0, dim = c(n_K, n_T, n_I))
   
   ## calculate number of independent Dirichlet-multinomial likelihood components, 
   ## i.e., one for every cohort, tagger group and release age, but leaving out those with zero releases 
@@ -107,8 +96,7 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
             prR[k, t, i, j] <- (2 * shed1[t] * S1star[k, t, i] * f1[k, t, j] - shed1[t]^2 * S2star[k, t, i] * f2[k, t, j]) * tag_rep_rates_ya[k + j - 2, j]
           }
           if (j > (i + 1)) {
-            prodS1 <- 1
-            prodS2 <- 1
+            prodS1 <- prodS2 <- 1
             for (s in (i + 1):(j - 1)) {
               prodS1 <- prodS1 * S1[k, t, s]
               prodS2 <- prodS2 * S2[k, t, s]
@@ -145,8 +133,7 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
           tag_od <- (tag_release_cta[k,t,i] - tag_var_factor) / (tag_var_factor - 1)
           if (tag_od < 0) tag_od <- 1e-3
           loglkhd_R <- loglkhd_R + lgamma(tag_od) - lgamma(tag_release_adj[k,t,i] + tag_od)
-          totR <- 0
-          totprR <- 0
+          totR <- totprR <- 0
           for (j in i:maxJ[k]) {
             loglkhd_R <- loglkhd_R + lgamma(tag_recap_ctaa[k,t,i,j] + tag_od * prR[k,t,i,j]) - lgamma(tag_od * prR[k,t,i,j]) 
             totR <- totR + tag_recap_ctaa[k,t,i,j]
@@ -161,7 +148,7 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
       }
     }
   }
-  return(lp)
+  return(list(pred = tag_pred, resid = tag_resid, lp = lp))
 }
 
 # get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 

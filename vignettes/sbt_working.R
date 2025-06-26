@@ -97,7 +97,7 @@ parameters <- list(
   par_log_aerial_sel = data_par1$ln_sel_aerial,
   par_log_troll_tau = log(data_par1$tau_troll),
   par_log_hsp_q = data_par1$lnqhsp, 
-  par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
+  # par_logit_hstar_i = qlogis(exp(data_par1$par_log_hstar_i)),
   par_log_tag_H_factor = log(data_par1$tag_H_factor)
 )
 

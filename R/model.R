@@ -138,24 +138,21 @@ sbt_model <- function(parameters, data) {
   cpue_resid <- x$resid
   x <- get_aerial_survey_like(aerial_switch, aerial_years, aerial_obs, aerial_cv, aerial_cov, par_aerial_tau, par_log_aerial_sel, number_ysa, weight_fya)
   lp_aerial <- x$lp
+  lp_aerial_tau <- x$lp_aerial_tau
   aerial_pred <- x$pred
   aerial_resid <- x$resid
-  lp_aerial_tau <- x$lp_aerial_tau
   x <- get_troll_like(troll_switch, troll_years, troll_obs, troll_sd, par_troll_tau, number_ysa)
   lp_troll <- x$lp
   troll_pred <- x$pred
   troll_resid <- x$resid
-  lp_tags <- get_tag_like(tag_switch, min_K + 1, n_K, n_T, n_I, n_J,
-                          first_yr, M_a, hrate_ysa,
-                          par_hstar_i, tag_release_cta, tag_recap_ctaa,
-                          minI = tag_rel_min_age,
-                          maxI = tag_rel_max_age,
-                          maxJ = tag_recap_max_age,
-                          shed1 = tag_shed_immediate, shed2 = tag_shed_continuous,
-                          tag_rep_rates_ya,
-                          tag_H_factor = par_tag_H_factor, tag_var_factor, tag_offset)
-  # tag_pred <- array(0, dim = c(n_K, n_T, n_I, n_J))
-  # tag_resid <- array(0, dim = c(n_K, n_T, n_I, n_J))
+  x <- get_tag_like(tag_switch, min_K + 1, n_K, n_T, n_I, n_J, first_yr, M_a, hrate_ysa,
+                    tag_release_cta, tag_recap_ctaa,
+                    minI = tag_rel_min_age, maxI = tag_rel_max_age, maxJ = tag_recap_max_age,
+                    shed1 = tag_shed_immediate, shed2 = tag_shed_continuous,
+                    tag_rep_rates_ya, tag_H_factor = par_tag_H_factor, tag_var_factor)
+  lp_tags <- x$lp
+  tag_pred <- x$pred
+  tag_resid <- x$resid
   lp_pop <- get_POP_like(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y)
   lp_hsp <- get_HSP_like(hsp_switch, hsp_obs, par_hsp_q, hsp_false_negative, number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa)
   lp_gt <- get_GT_like(gt_switch, gt_obs, number_ysa)
@@ -202,8 +199,8 @@ sbt_model <- function(parameters, data) {
   REPORT(aerial_resid)
   REPORT(troll_pred)
   REPORT(troll_resid)
-  # REPORT(tag_pred)
-  # REPORT(tag_resid)
+  REPORT(tag_pred)
+  REPORT(tag_resid)
   
   REPORT(M_a)
   REPORT(phi_ya)
@@ -217,12 +214,12 @@ sbt_model <- function(parameters, data) {
   REPORT(R0)
   REPORT(alpha)
   REPORT(beta)
+  ADREPORT(par_sigma_r)
   REPORT(tau_ac2)
-  REPORT(recruitment_y)
   REPORT(par_rdev_y)
   # REPORT(rec_dev_y)
   REPORT(rdev_y)
-  ADREPORT(par_sigma_r)
+  REPORT(recruitment_y)
   
   return(nll)
 }
