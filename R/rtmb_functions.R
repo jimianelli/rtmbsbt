@@ -8,6 +8,31 @@
 cmb <- function(f, d) function(p) f(p, d)
 
 
+#' Tag Recapture Likelihood
+#'
+#' Computes the negative log-likelihood for tag-recapture data using a seasonal, age-based model.
+#'
+#' @param tag_switch Integer flag to turn the likelihood on (>0) or off (0).
+#' @param minK Integer, starting cohort index.
+#' @param n_K Number of cohorts.
+#' @param n_T Number of tagging time periods.
+#' @param n_I Number of release ages.
+#' @param n_J Number of recapture ages.
+#' @param first_yr First model year.
+#' @param M_a Vector of natural mortality at age.
+#' @param hrate_ysa 3D array [year, season, age] of harvest rates.
+#' @param par_hstar_i Vector of free parameters for tag shedding (h*) for each cohort and release age.
+#' @param tag_release_cta 3D array [cohort, time, age] of numbers of tags released.
+#' @param tag_recap_ctaa 4D array [cohort, time, rel_age, recap_age] of numbers of tags recaptured.
+#' @param minI,maxI,maxJ Vectors giving the min and max release and recapture ages for each cohort.
+#' @param shed1,shed2 Vectors of shedding rates per time period.
+#' @param tag_rep_rates_ya Matrix of tag reporting rates by year and age.
+#' @param tag_H_factor Numeric scaling factor for incomplete mixing.
+#' @param tag_var_factor Overdispersion factor.
+#' @param tag_offset Offset term for overdispersion.
+#'
+#' @return Negative log-likelihood (scalar) for tag data.
+#' @export
 get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, 
                          first_yr, M_a, hrate_ysa, 
                          par_hstar_i, tag_release_cta, tag_recap_ctaa, 
@@ -152,6 +177,28 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J,
   return(lp)
 }
 
+#' Aerial Survey Likelihood
+#'
+#' Computes the likelihood contribution from an aerial index of abundance survey.
+#'
+#' @param aerial_switch Integer specifying the type of selectivity (0–4).
+#' @param aerial_years Vector of years corresponding to observations.
+#' @param aerial_obs Vector of observed aerial survey indices.
+#' @param aerial_cv Coefficients of variation for observations.
+#' @param aerial_cov Covariance matrix of aerial observations.
+#' @param par_aerial_tau Observation error term.
+#' @param par_log_aerial_sel Vector of log selectivity parameters (for ages 2 and 4).
+#' @param number_ysa 3D array [year, season, age] of numbers-at-age.
+#' @param weight_fya 3D array [fleet, year, age] of weights-at-age.
+#'
+#' @return A list with predicted values, residuals, and log-likelihood components:
+#' \describe{
+#'   \item{pred}{Predicted survey index.}
+#'   \item{resid}{Log residuals.}
+#'   \item{lp_aerial_tau}{Log determinant of the covariance matrix.}
+#'   \item{lp}{Negative log-likelihood contribution.}
+#' }
+#' @export
 get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aerial_cv, aerial_cov, 
                                    par_aerial_tau, par_log_aerial_sel, number_ysa, weight_fya) {
   
@@ -199,6 +246,19 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
 }
 
 
+#' Parent-Offspring Pairing Likelihood
+#'
+#' Computes the negative log-likelihood for observed parent-offspring pairings from genetic samples.
+#'
+#' @param pop_switch Integer flag for activation (currently unused).
+#' @param pop_obs Matrix [n,6]: capture year, offspring year, adult age/length, type flag (0=age, 1=length),
+#'   number of pairings, and number of comparisons.
+#' @param phi_ya Matrix [year, age] of reproductive output-at-age.
+#' @param paly Array [length, age, year] of predicted adult distributions at length.
+#' @param spawning_biomass_y Vector of spawning biomass by year.
+#'
+#' @return Vector of negative log-likelihood contributions for each observation.
+#' @export
 get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -242,6 +302,22 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) 
 }
 
 
+#' Half-Sibling Pair Likelihood
+#'
+#' Computes the negative log-likelihood for half-sibling pair observations based on reproduction and survival.
+#'
+#' @param hsp_switch Integer flag for activation (currently unused).
+#' @param hsp_obs Matrix [n,5] with columns: cohort1, cohort2, cohort difference, comparisons, matches.
+#' @param hsp_q Effective sampling fraction of potential parents.
+#' @param hsp_false_negative Probability of detecting a true match (1 – false negative rate).
+#' @param number_ysa 3D array [year, season, age] of numbers-at-age.
+#' @param phi_ya Matrix [year, age] of reproductive output-at-age.
+#' @param M_a Vector of natural mortality at age.
+#' @param spawning_biomass_y Vector of spawning biomass by year.
+#' @param hrate_ysa 3D array [year, season, age] of harvest rates.
+#'
+#' @return Vector of negative log-likelihood contributions for each observation.
+#' @export
 get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative, 
                          number_ysa, phi_ya, M_a, spawning_biomass_y, hrate_ysa) {
   
@@ -310,6 +386,22 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
 }
 
 
+#' Selectivity Prior Penalty Likelihood
+#'
+#' Computes penalty terms for initial selectivity levels, year-to-year changes, and smoothness constraints.
+#'
+#' @param first_yr Model start year.
+#' @param first_yr_catch_f Vector of first years of catch data per fishery.
+#' @param sel_min_age_f, sel_max_age_f Vectors of minimum and maximum selectivity ages per fishery.
+#' @param sel_change_year_fy Logical matrix indicating whether selectivity changed in a year.
+#' @param sel_change_sd_fy Matrix of standard deviations for selectivity changes.
+#' @param sel_smooth_sd_f Vector of smoothing SDs per fishery.
+#' @param par_sels_init_i Vector of initial selectivity log-values.
+#' @param par_sels_change_i Vector of selectivity changes.
+#' @param sel_fya 3D array [fishery, year, age] of selectivity values.
+#'
+#' @return A numeric vector of 3 penalty components: change penalty, smoothness penalty, and log-mean prior.
+#' @export
 get_sel_like <- function(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_f, sel_change_year_fy, sel_change_sd_fy, 
                          sel_smooth_sd_f, par_sels_init_i, par_sels_change_i, sel_fya) {
   "[<-" <- ADoverload("[<-")
@@ -350,6 +442,16 @@ get_sel_like <- function(first_yr, first_yr_catch_f, sel_min_age_f, sel_max_age_
   return(lp)
 }
 
+#' Recruitment Prior Penalty
+#'
+#' Applies a split variance penalty to recruitment deviations.
+#'
+#' @param rdev_y Vector of recruitment deviations.
+#' @param sigma_r Recruitment standard deviation.
+#' @param tau_ac2 Temporal autocorrelation squared.
+#'
+#' @return Negative log-prior penalty (scalar).
+#' @export
 get_recruitment_prior <- function(rdev_y, sigma_r, tau_ac2) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -364,6 +466,23 @@ get_recruitment_prior <- function(rdev_y, sigma_r, tau_ac2) {
 }
 
 
+#' CPUE Index Likelihood
+#'
+#' Computes the likelihood for a standardized CPUE index using a log-linear model.
+#'
+#' @param cpue_switch Integer switch to activate the likelihood.
+#' @param cpue_a1, cpue_a2 Minimum and maximum CPUE age indices.
+#' @param cpue_years Vector of year indices for CPUE observations.
+#' @param cpue_obs Observed CPUE values.
+#' @param cpue_adjust Vector of adjustment scalars for each CPUE observation.
+#' @param cpue_sigma Observation standard deviation.
+#' @param cpue_omega Power parameter for scaling to total numbers.
+#' @param log_cpue_q Logarithm of catchability coefficient.
+#' @param number_ysa 3D array [year, season, age] of numbers-at-age.
+#' @param sel_fya 3D array [fishery, year, age] of selectivity.
+#'
+#' @return List with predicted CPUE, residuals, and likelihood vector.
+#' @export
 get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17, 
                           cpue_years, cpue_obs, cpue_adjust, cpue_sigma, cpue_omega, 
                           log_cpue_q, par_cpue_creep, number_ysa, sel_fya) {
@@ -395,6 +514,19 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
   return(list(pred = cpue_pred, resid = cpue_resid, lp = lp))
 }
 
+#' Age Composition Likelihood
+#'
+#' Calculates the multinomial likelihood for observed age compositions.
+#'
+#' @param af_year Vector of year indices.
+#' @param af_fishery Vector of fishery indices.
+#' @param af_min_age, af_max_age Vectors of minimum and maximum ages.
+#' @param af_obs Matrix of observed proportions-at-age.
+#' @param af_n Vector of effective sample sizes.
+#' @param catch_pred_fya 3D array [fishery, year, age] of predicted catch.
+#'
+#' @return List with predicted age compositions and log-likelihoods.
+#' @export
 get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -422,6 +554,19 @@ get_age_like <- function(af_year, af_fishery, af_min_age, af_max_age, af_obs, af
 }
 
 
+#' Length Composition Likelihood
+#'
+#' Computes likelihood for observed length compositions using ALKs.
+#'
+#' @param lf_year, lf_season, lf_fishery Vectors of indices for observations.
+#' @param lf_minbin Minimum size bin to be aggregated.
+#' @param lf_obs Matrix of observed length proportions.
+#' @param lf_n Vector of effective sample sizes.
+#' @param catch_pred_fya 3D array of predicted catch.
+#' @param alk_ysal 4D array [year, season, age, length_bin] of ALKs.
+#'
+#' @return List with predicted compositions and likelihood contributions.
+#' @export
 get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
                             lf_n, catch_pred_fya, alk_ysal) {
   "[<-" <- ADoverload("[<-")
@@ -458,6 +603,19 @@ get_length_like <- function(lf_year, lf_season, lf_fishery, lf_minbin, lf_obs,
   return(list(pred = lf_pred, lp = lp))
 }
 
+#' Troll CPUE Likelihood
+#'
+#' Computes the log-likelihood for troll CPUE data.
+#'
+#' @param troll_switch Integer flag to turn likelihood on or off.
+#' @param troll_years Vector of year indices.
+#' @param troll_obs Observed troll index values.
+#' @param troll_sd Observation standard errors.
+#' @param troll_tau Process error.
+#' @param number_ysa 3D array of numbers-at-age.
+#'
+#' @return List of predicted values, residuals, and log-likelihoods.
+#' @export
 get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll_tau, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -477,6 +635,16 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll
   return(list(pred = troll_pred, resid = troll_res, lp = lp))
 }
 
+#' Genetic Tagging Likelihood
+#'
+#' Computes binomial likelihood of recapture events from genetic tagging data.
+#'
+#' @param gt_switch Integer switch to activate likelihood.
+#' @param gt_obs Matrix of GT data [year_rel, age_rel, year_rec, nrel, nscan, nrec].
+#' @param number_ysa 3D array [year, season, age] of numbers-at-age.
+#'
+#' @return Negative log-likelihood vector per observation.
+#' @export
 get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -505,7 +673,20 @@ get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
   }
 }
 
-# depensation parameter
+#' Calculate Recruitment
+#'
+#' Computes recruitment based on Beverton-Holt with depensation and log-normal deviations.
+#'
+#' @param y Year index.
+#' @param sbio Spawning biomass.
+#' @param B0 Unfished biomass.
+#' @param alpha, beta Beverton-Holt parameters.
+#' @param sigma_r Lognormal SD of recruitment deviations.
+#' @param rdev_y Recruitment deviations.
+#' @param sr_dep Depensation parameter (default 1e-10).
+#'
+#' @return Recruitment value (numeric).
+#' @export
 get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y, sr_dep = 1e-10) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -517,6 +698,21 @@ get_recruitment <- function(y, sbio, B0, alpha, beta, sigma_r, rdev_y, sr_dep = 
 }
 
 
+#' Harvest Rate Calculation
+#'
+#' Computes age-specific harvest rates and F by fishery.
+#'
+#' @param y, s Year and season index.
+#' @param first_yr, first_yr_catch Model and catch start years.
+#' @param slice_switch_f Vector of slice-switch flags.
+#' @param catch_obs_ysf Observed catch by year-season-fishery.
+#' @param number_ysa 3D array of numbers-at-age.
+#' @param sel_fya Selectivity array.
+#' @param weight_fya Weight-at-age.
+#' @param sliced_ysfa Sliced numbers-at-age.
+#'
+#' @return List with age-specific harvest rates, fishery F, and penalty term.
+#' @export
 get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
                              catch_obs_ysf, number_ysa, sel_fya, weight_fya,
                              sliced_ysfa) {
@@ -547,6 +743,16 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, slice_switch_f,
   return(list(h_rate_a = h_rate_a, F_f = F_f, penalty = tmp$penalty))
 }
 
+#' Estimate Temporal Autocorrelation in Recruitment Deviations
+#'
+#' Calculates the autocorrelation coefficient (rho) for recruitment deviations.
+#'
+#' @param first_yr First model year.
+#' @param last_yr Last model year.
+#' @param rdev Vector of recruitment deviations.
+#'
+#' @return Estimated autocorrelation (tau_ac2).
+#' @export
 get_rho <- function(first_yr, last_yr, rdev) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -564,6 +770,23 @@ get_rho <- function(first_yr, last_yr, rdev) {
   return(tau_ac2)
 }
 
+#' Initial Numbers and Beverton-Holt Parameters
+#'
+#' Computes the initial equilibrium numbers-at-age, unfished recruitment (R0), and Beverton-Holt stock-recruitment parameters.
+#'
+#' @param B0 Unfished spawning biomass.
+#' @param steep Beverton-Holt steepness.
+#' @param M_a Vector of natural mortality-at-age.
+#' @param phi_ya Matrix [year, age] of spawning output-at-age.
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{Ninit}{Initial numbers-at-age (vector).}
+#'   \item{R0}{Unfished recruitment (scalar).}
+#'   \item{alpha}{BH alpha parameter.}
+#'   \item{beta}{BH beta parameter.}
+#' }
+#' @export
 get_initial_numbers <- function(B0, steep, M_a, phi_ya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -611,6 +834,22 @@ get_selectivity2 <- function(n_age, max_age, first_yr, first_yr_catch,
   return(sel_fya)
 }
 
+#' Compute Selectivity-at-Age Across Years
+#'
+#' Constructs the selectivity-at-age array by fishery and year, incorporating initial values and changes.
+#'
+#' @param n_age Total number of ages.
+#' @param max_age Maximum model age.
+#' @param first_yr Model start year.
+#' @param first_yr_catch Vector of first catch years per fishery.
+#' @param sel_end_f Logical vector indicating whether to extend the final selectivity across remaining ages.
+#' @param sel_change_year_fy Matrix [fishery, year] indicating change years.
+#' @param par_sels_init_i Vector of initial selectivity log-values.
+#' @param par_sels_change_i Vector of changes in selectivity (log-space).
+#'
+#' @return 3D array [fishery, year, age] of selectivity values.
+#' @export
+>>>>>>> b284818 (added some docco to rtmb_functions)
 get_selectivity <- function(n_age, max_age, first_yr, first_yr_catch, 
                             sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy,
                             par_sels_init_i, par_sels_change_i) {
@@ -667,6 +906,19 @@ get_selectivity <- function(n_age, max_age, first_yr, first_yr_catch,
 }
 
 
+#' Spawning Output-at-Age
+#'
+#' Calculates spawning output per recruit at age and year using length-based maturity and fecundity scaling.
+#'
+#' @param psi Scalar fecundity scaling exponent.
+#' @param length_m50 Length at 50% maturity.
+#' @param length_m95 Length at 95% maturity.
+#' @param length_mu_ysa 3D array [year, season, age] of expected length-at-age.
+#' @param length_sd_a Vector of length standard deviations at age.
+#' @param dl_yal 3D array [year, age, length_bin] of length distribution weights.
+#'
+#' @return Matrix [year + 1, age] of normalized spawning output-at-age.
+#' @export
 get_phi <- function(psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -699,6 +951,19 @@ get_phi <- function(psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_
   return(phi_ya)
 }
 
+#' Natural Mortality-at-Age
+#'
+#' Constructs a vector of M-at-age values using a declining early-age curve and late-age increase.
+#'
+#' @param min_age, max_age Minimum and maximum model age.
+#' @param age_increase_M Age at which M begins to increase again.
+#' @param m0 M at age-1 and 2.
+#' @param m4 M at age-4 (controls slope of decline).
+#' @param m10 M at age-10 (base for flat zone).
+#' @param m30 M at age-30 (terminal age M).
+#'
+#' @return Vector of M-at-age values.
+#' @export
 get_M <- function(min_age, max_age, age_increase_M, m0, m4, m10, m30) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -742,12 +1007,16 @@ invlogit_bnd <- function(x, lb = 0, ub = 1) {
   (expx + lb) / (ub + expx)
 }
 
-#' Double logistic function
-#' @param x A numeric vector.
-#' @param p1 Parameter 1.
-#' @param p2 Parameter 2.
-#' @param p3 Parameter 3.
-#' @return A transformed vector.
+#' Double Logistic Function
+#'
+#' Computes a dome-shaped function based on two logistic curves.
+#'
+#' @param x A numeric vector of ages or lengths.
+#' @param p1 Controls the ascending slope.
+#' @param p2 Distance from start to peak.
+#' @param p3 Controls the descending slope.
+#' @return A numeric vector of transformed values.
+#' @export
 double_logistic <- function(x, p1, p2, p3) {
   gamma1 <- p1 + p2
   gamma2 <- p1 + gamma1 + p3
@@ -759,6 +1028,7 @@ double_logistic <- function(x, p1, p2, p3) {
 #' Norm squared of a vector
 #' @param x A numeric vector.
 #' @return The sum of squares of the elements of x.
+
 norm2 <- function(x) {
   sum(x * x)
 }
@@ -777,9 +1047,13 @@ third_difference <- function(x) {
   diff(diff(diff(x)))
 }
 
-#' Exponential minus one
+#' Exponential Minus One
+#'
+#' Computes \eqn{\exp(x) - 1} using a Taylor approximation for small \eqn{x}.
+#'
 #' @param x A numeric value.
-#' @return exp(x) - 1, with a Taylor approximation for small x.
+#' @return \eqn{\exp(x) - 1}, numerically stable for small \eqn{x}.
+#' @export
 expm1 <- function(x) {
   if (abs(x) < 1e-5) {
     x + 0.5 * x * x
@@ -788,16 +1062,21 @@ expm1 <- function(x) {
   }
 }
 
-#' Ensure population above 0Add commentMore actions
-#' 
+#' Positive Constraint Penalty Function
 #' https://github.com/kaskr/adcomp/issues/7
-#' 
-#' @param x value to remain above eps
-#' @param eps value to compare x to
-#' @return a \code{vector} penalty
+#'
+#' Ensures a value remains above a small threshold using a smooth approximation and penalty.
+#'
+#' @param x Numeric value to constrain.
+#' @param eps Minimum allowable value (default 0.001).
+#'
+#' @return A list with:
+#' \describe{
+#'   \item{new}{Transformed value.}
+#'   \item{penalty}{Penalty applied if \code{x < eps}.}
+#' }
 #' @importFrom RTMB ADoverload logspace_add
 #' @export
-#'
 posfun <- function(x, eps = 0.001) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
