@@ -450,9 +450,9 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
   for (i in 2:n_cpue) cpue_adjust[i] <- cpue_adjust[i - 1] + par_cpue_creep
   for (i in seq_len(n_cpue)) {
     y <- cpue_years[i]
-    cpue_sel <- sel_fya[1, y, 5:n_age]
-    cpue_n <- number_ysa[y, 2, 5:n_age]
-    cpue_selm <- sel_fya[1, y, (cpue_a1 + 1):(cpue_a2 + 1)]
+    cpue_sel <- sel_fya[7, y, 5:n_age] # age 4+
+    cpue_n <- number_ysa[y, 2, 5:n_age] # season 2
+    cpue_selm <- sel_fya[7, y, (cpue_a1 + 1):(cpue_a2 + 1)]
     tmpN <- sum(cpue_sel * cpue_n) / mean(cpue_selm)
     cpue_log_pred[i] <- log(cpue_adjust[i]) + cpue_omega * log(tmpN)
   }
@@ -556,6 +556,30 @@ get_length_like <- function(removal_switch_f, lf_year, lf_season, lf_fishery, lf
       obs <- obs + 1e-6
       lp[i] <- lp[i] + lf_n[i] * sum(obs * log(obs))
     }
+  }
+  return(list(pred = lf_pred, lp = lp))
+}
+
+
+get_cpue_length_like <- function(cpue_years, cpue_lfs, cpue_n, number_ysa, sel_fya, alk_ysal) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+  n_lf <- nrow(cpue_lfs)
+  n_age <- dim(sel_fya)[3]
+  n_bins <- 25
+  lp <- numeric(n_lf)
+  lf_pred <- matrix(0, n_lf, n_bins)
+  for (i in seq_len(n_lf)) {
+    y <- cpue_years[i]
+    catch_a <- number_ysa[y, 2,] * sel_fya[7, y,]
+    pred <- catch_a %*% alk_ysal[y, 2,, 1:n_bins]
+    pred <- pred[1,] / sum(pred)
+    lf_pred[i,] <- pred
+    obs <- cpue_lfs[i,]
+    lp[i] <- -cpue_n[i] * sum(obs * log(pred))
+    obs <- obs + 1e-6
+    lp[i] <- lp[i] + cpue_n[i] * sum(obs * log(obs))
   }
   return(list(pred = lf_pred, lp = lp))
 }
@@ -674,7 +698,7 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, removal_switch_f,
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
-  n_fishery <- dim(sel_fya)[1]
+  n_fishery <- dim(weight_fya)[1]
   n_year <- dim(sel_fya)[2]
   n_age <- dim(sel_fya)[3]
   yy <- y - (first_yr_catch - first_yr)
@@ -682,17 +706,17 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, removal_switch_f,
   h_rate_fa <- array(0, dim = c(n_fishery, n_age))
   for (f in seq_len(n_fishery)) {
     if (catch_obs_ysf[yy, s, f] > 0) {
-      if (removal_switch_f[f] == 1) {
-        Nsum <- sum(af_sliced_ysfa[y, s, f,] * weight_fya[f, y,]) + 1e-6
-        h_rate_fa[f,] <- (catch_obs_ysf[yy, s, f] * af_sliced_ysfa[y, s, f,]) / (number_ysa[y, s,] * Nsum)
-      } else {
+      if (removal_switch_f[f] == 0) {
         Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
         F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
         h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
+      } else if (removal_switch_f[f] == 1) {
+        Nsum <- sum(af_sliced_ysfa[y, s, f,] * weight_fya[f, y,]) + 1e-6
+        h_rate_fa[f,] <- (catch_obs_ysf[yy, s, f] * af_sliced_ysfa[y, s, f,]) / (number_ysa[y, s,] * Nsum)
       }
     }
   }
-  h_rate_a <- colSums(h_rate_fa)
+  h_rate_a <- colSums(h_rate_fa[1:6,])
   tmp <- posfun(x = 1 - sum(F_f), eps = 0.001)
   return(list(h_rate_a = h_rate_a, h_rate_fa = h_rate_fa, penalty = tmp$penalty))
 }
@@ -977,4 +1001,78 @@ posfun <- function(x, eps = 0.001) {
   out$new <- eps * logspace_add(x / eps, 0)
   out$penalty <- pen
   return(out)
+}
+
+
+
+plot_cpue_lf <- function(data, object, posterior = NULL, probs = c(0.025, 0.975),
+                    years = NULL, ...) {
+  
+  specs <- data.frame(Year = data$cpue_year + data$first_yr - 1, N = data$cpue_n) %>%
+    mutate(id = 1:n())
+  
+  obs <- cbind(specs, data$cpue_lf) %>%
+    data.frame() %>%
+    pivot_longer(cols = starts_with("X"), names_to = "Length", values_to = "obs") %>%
+    mutate(Length = parse_number(Length))
+  
+  pred <- cbind(specs, object$report()$cpue_lf_pred) %>%
+    data.frame() %>%
+    pivot_longer(cols = starts_with("X"), names_to = "Length", values_to = "pred") %>%
+    mutate(Length = parse_number(Length))
+  
+  df <- full_join(obs, pred, by = join_by("Year", "N", "Length", "id")) %>% 
+    mutate(Length = seq(87.5, 184, 4)[Length])
+
+  if (!is.null(years)) df <- df %>% filter(Year %in% years)
+  
+  dfN <- df %>% 
+    select(Year, N) %>%
+    distinct() %>%
+    mutate(N = paste0("N=", N))
+  
+  p <- ggplot(data = df, aes(x = .data$Length, y = .data$obs)) +
+    geom_label(data = dfN, aes(x = -Inf, y = Inf, label = N), hjust = 0, vjust = 1, label.r = unit(0, "lines")) +
+    geom_point(colour = "red") +
+    geom_line(aes(y = .data$pred), linetype = "dashed") +
+    labs(x = "Length (cm)", y = "Proportion") +
+    facet_wrap(Year ~ .) +
+    scale_x_continuous(breaks = pretty_breaks()) +
+    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+  
+  # if (!is.null(posterior)) {
+  #   df0 <- get_posterior(object = object, posterior = posterior, pars = "lf_pred") %>%
+  #     mutate(Length = rep(1:25, each = 85)[id]) %>%
+  #     mutate(id = rep(1:85, 31)[id]) %>%
+  #     left_join(specs, by = join_by("id")) %>%
+  #     select(-id, -output) %>%
+  #     rename(pred = value) %>%
+  #     filter(Fishery == fishery)
+  #   
+  #   df1 <- df0 %>% pivot_wider(names_from = Age, values_from = pred)
+  #   prob <- as.matrix(df1 %>% select(`0`:`30`))
+  #   
+  #   df_ppred <- t(mapply(rmultinom, n = 1, size = df1$N, prob = split(x = prob, f = c(row(prob)))))
+  #   df_ppred <- df_ppred / rowSums(df_ppred)
+  #   
+  #   dfpp <- cbind(df1 %>% select(chain, iter, Year, Fishery, N, min, max), df_ppred) %>%
+  #     pivot_longer(cols = !chain:max, names_to = "Age", values_to = "ppred") %>%
+  #     mutate(Age = as.numeric(Age) - 1)
+  #   
+  #   df_mcmc <- full_join(df0, dfpp, by = join_by("chain", "iter", "Age", "Year", "Fishery", "N", "min", "max")) %>%
+  #     filter(Age >= min, Age <= max)
+  #   
+  #   p <- p +
+  #     stat_summary(data = df_mcmc, geom = "ribbon", alpha = 0.5,
+  #                  aes(y = ppred),
+  #                  fun.min = function(x) quantile(x, probs = probs[1]),
+  #                  fun.max = function(x) quantile(x, probs = probs[2])) +
+  #     stat_summary(data = df_mcmc, geom = "ribbon", alpha = 0.5,
+  #                  aes(y = pred),
+  #                  fun.min = function(x) quantile(x, probs = probs[1]),
+  #                  fun.max = function(x) quantile(x, probs = probs[2])) +
+  #     stat_summary(data = df_mcmc, aes(y = pred), geom = "line", fun = median)
+  # }
+  
+  return(p)
 }

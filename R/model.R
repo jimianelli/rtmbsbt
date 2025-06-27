@@ -45,8 +45,7 @@ sbt_model <- function(parameters, data) {
   #                            sel_change_year_fy, par_sels_init_i, par_sels_change_i)
   par_log_sel_fya <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6, par_log_sel_7)
   sel_fya <- get_selectivity2(n_age, max_age, first_yr, first_yr_catch,
-                              sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy, 
-                              par_log_sel_fya)
+                              sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy, par_log_sel_fya)
   
   # Initial conditions
   
@@ -68,7 +67,6 @@ sbt_model <- function(parameters, data) {
   
   hrate_ysa  <- array(0, dim = c(n_year + 1, n_season, n_age))
   hrate_ysfa  <- array(0, dim = c(n_year + 1, n_season, n_fishery, n_age))
-  # F_ysf  <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
   catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
   fy <- first_yr_catch - first_yr + 1
@@ -83,7 +81,6 @@ sbt_model <- function(parameters, data) {
       hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, af_sliced_ysfa)
       hrate_ysa[y,1,] <- hr$h_rate_a
       hrate_ysfa[y,1,,] <- hr$h_rate_fa
-      # F_ysf[y,1,] <- hr$F_f
       lp_penalty <- lp_penalty + hr$penalty
     }
     number_ysa[y,2,] <- number_ysa[y,1,] * (1 - hrate_ysa[y,1,]) * S_a
@@ -92,7 +89,6 @@ sbt_model <- function(parameters, data) {
       hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya, af_sliced_ysfa)
       hrate_ysa[y,2,] <- hr$h_rate_a
       hrate_ysfa[y,2,,] <- hr$h_rate_fa
-      # F_ysf[y,2,] <- hr$F_f
       lp_penalty <- lp_penalty + hr$penalty
     }
     number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
@@ -114,7 +110,8 @@ sbt_model <- function(parameters, data) {
   
   sigma2 <- exp(par_log_sel_sigma)^2
   lp_sel <- numeric(n_fishery)
-  for (f in seq_len(n_fishery)) {
+  # for (f in seq_len(n_fishery)) {
+  for (f in 1:7) {
     rho_y <- par_sel_rho_y[f]
     rho_a <- par_sel_rho_a[f]
     scale <- sqrt(sigma2[f]) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2) # Define 2d scale
@@ -135,6 +132,11 @@ sbt_model <- function(parameters, data) {
   x <- get_length_like(removal_switch_f, lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, lf_n, catch_pred_fya, alk_ysal)
   lp_lf <- x$lp
   lf_pred <- x$pred
+  
+  x <- get_cpue_length_like(cpue_years, cpue_lfs, cpue_n, number_ysa, sel_fya, alk_ysal)
+  lp_lf <- c(lp_lf, x$lp)
+  cpue_lf_pred <- x$pred
+  
   x <- get_age_like(removal_switch_f, af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya)
   lp_af <- x$lp
   af_pred <- x$pred
@@ -197,6 +199,7 @@ sbt_model <- function(parameters, data) {
   REPORT(lf_pred)
   REPORT(af_pred)
   REPORT(cpue_pred)
+  REPORT(cpue_lf_pred)
   REPORT(cpue_resid)
   REPORT(aerial_pred)
   REPORT(aerial_resid)

@@ -23,7 +23,6 @@ data <- list(
   sel_max_age_f = c(17, 9, 17, 22, 25, 7),
   sel_end_f = c(1, 0, 1, 1, 1, 0),
   sel_change_sd_fy = t(as.matrix(sel_change_sd[,-1])), 
-  sel_smooth_sd_f = lr$sel.smooth.sd,
   pop_switch = 1, 
   hsp_switch = 1, hsp_false_negative = 0.7467647, 
   gt_switch = 1,
@@ -44,23 +43,42 @@ data$lf_year <- data$lf_year + 1
 # data$pop_obs[,1] <- data$pop_obs[,1] + 1
 # data$sel_max_age_f[4] <- 18
 
+cpue_lfs <- read_csv("lf_assessment.csv") %>%
+  filter(Fishery == 7)
+dim(cpue_lfs)
+
+c(data$first_yr:data$last_yr)[data$lf_year[data$lf_fishery == 1]]
+c(data$first_yr:data$last_yr)[data$cpue_years]
+ii <- which(data$lf_fishery == 1 & data$lf_year %in% data$cpue_years)
+data$cpue_lfs <- data$lf_obs[ii,]
+# data$cpue_lfs <- cpue_lfs[,] # NEED TO READ THIS IN AS IN prepare-data.R to make it fit
+data$cpue_n <- data$lf_n[ii]
+
 source("../R/rtmb_functions.R")
 xx <- get_selectivity(data$n_age, data$max_age, data$first_yr, data$first_yr_catch, 
                       data$sel_min_age_f, data$sel_max_age_f, data$sel_end_f, data$sel_change_year_fy,
                       data_par1$par_sels_init_i, data_par1$par_sels_change_i)
-
+xx2 <- array(0, dim = c(7, 92, 31))
+xx2[1:6,,] <- xx
+xx2[7,,] <- xx[1,,]
+xx <- xx2
+data$sel_min_age_f <- c(data$sel_min_age_f, 2)
+data$sel_max_age_f <- c(data$sel_max_age_f, 17)
+data$sel_end_f <- c(data$sel_end_f, 1)
+data$sel_change_year_fy <- rbind(data$sel_change_year_fy, data$sel_change_year_fy[1,])
 data$sel_change_year_fy[,data$first_yr_catch - data$first_yr + 1] <- 1 # must stay here for now
+data$sel_change_year_fy[7,1:38] <- 0
+data$sel_change_year_fy[7,]
 
 par_sel <- list()
-for (f in 1:6) {
+for (f in 1:7) {
   iy <- as.logical(data$sel_change_year_fy[f,])
   ia <- c(data$sel_min_age_f[f]:data$sel_max_age_f[f]) + 1
-  par_sel[[f]] <- log(xx[f,iy,ia])
+  par_sel[[f]] <- log(xx[f, iy, ia])
 }
-par_sel[[4]] <- t(as.matrix(par_sel[[4]]))
+par_sel[[4]] <- t(as.matrix(par_sel[[4]])) # to force as matrix
 plot(xx[1,22,], type = "l")
 for (i in 55:75) lines(xx[1,i,], col = i)
-
 plot(exp(par_sel[[1]][1,]), type = "l")
 for (i in 2:10) lines(exp(par_sel[[1]][i,]), col = i)
 
@@ -70,9 +88,9 @@ for (i in 2:10) lines(exp(par_sel[[1]][i,]), col = i)
 # sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
 # sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # year
 # sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # age
-rho_y <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
-rho_a <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
-sigma <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) * sqrt(1 - rho_y^2) * sqrt(1 - rho_a^2)
+rho_y <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5, 0.7) # year
+rho_a <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5, 0.9) # age
+sigma <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5, 1) * sqrt(1 - rho_y^2) * sqrt(1 - rho_a^2)
 (scale <- sqrt(sigma^2) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2))
 
 parameters <- list(
@@ -123,9 +141,9 @@ map[["par_log_aerial_sel"]] <- factor(rep(NA, 2))
 map[["par_log_hsp_q"]] <- factor(NA)
 map[["par_log_tag_H_factor"]] <- factor(NA)
 map[["par_log_sel_4"]] <- factor(matrix(NA, nrow = nrow(parameters$par_log_sel_4), ncol = ncol(parameters$par_log_sel_4)))
-map[["par_sel_rho_y"]] <- factor(rep(NA, 6))
-map[["par_sel_rho_a"]] <- factor(rep(NA, 6))
-map[["par_log_sel_sigma"]] <- factor(rep(NA, 6))
+map[["par_sel_rho_y"]] <- factor(rep(NA, 7))
+map[["par_sel_rho_a"]] <- factor(rep(NA, 7))
+map[["par_log_sel_sigma"]] <- factor(rep(NA, 7))
 # map_phi <- matrix(NA, nrow = 6, ncol = 2)
 # # map_phi[6,] <- c(1, 2)
 # map[["par_log_sel_phi"]] <- factor(map_phi)
@@ -139,7 +157,7 @@ obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map
 # obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), 
 #                        parameters = parameters, map = map, random = c("par_log_sel_6"))
 unique(names(obj$par))
-obj$report()$lp_pop
+obj$report()$lp_lf
 obj$fn()
 
 Params <- parameters
@@ -176,12 +194,24 @@ exp(obj$par[names(obj$par) %in% c("par_log_sel_phi", "par_log_sel_scale")])
 source("../../sbt/R/plot-selectivity.R")
 library(scales)
 library(ggridges)
+p1 <- plot_selectivity(data = data, object = obj, years = 1969:2022, fisheries = "CPUE")
+p2 <- plot_selectivity(data = data, object = obj, years = 1969:2022, fisheries = "LL1")
+p1 + p2
+plot_cpue_lf(data = data, object = obj)
+
 plot_selectivity(data = data, object = obj)
 plot_selectivity(data = data, object = obj, years = 1954:1991, fisheries = "LL4")
+
 plot_lf(data = data, object = obj, fishery = "LL1")
 plot_lf(data = data, object = obj, fishery = "LL4")
 plot_af(data = data, object = obj, fishery = "Indonesian")
 plot_af(data = data, object = obj, fishery = "Australian")
+plot_cpue(data = data, object = obj)
+
+plot(obj$report()$number_ysa[39,2,], type = "l")
+plot(obj$report()$sel_fya[7,39,], type = "l")
+plot(obj$report()$number_ysa[39,2,] * obj$report()$sel_fya[7,39,], type = "l")
+plot(obj$report()$cpue_lf_pred[1,], type = "l")
 
 data.frame(fishery = data$af_fishery, value = obj$report()$lp_af) %>% 
   group_by(fishery) %>% 
