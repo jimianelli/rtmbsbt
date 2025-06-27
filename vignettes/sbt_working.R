@@ -43,16 +43,51 @@ data$lf_year <- data$lf_year + 1
 # data$pop_obs[,1] <- data$pop_obs[,1] + 1
 # data$sel_max_age_f[4] <- 18
 
-cpue_lfs <- read_csv("lf_assessment.csv") %>%
-  filter(Fishery == 7)
-dim(cpue_lfs)
+min_len <- 86
+bin_width <- 4
+nbins <- 25
+fsh <- data.frame(ifishery = 7, fishery = "CPUE", season = 2)
+
+lf_data <- cpue_lfs <- read_csv("lf_assessment.csv") %>% filter(Fishery == 7)
+
+obs_len_freq_il <- matrix(0, nrow = nrow(lf_data), ncol = 25)
+
+for (irec in 1:nrow(lf_data)) {
+  kbin <- 1
+  mod_bin_wid <- min_len + bin_width * (kbin - 1)
+  for (i in 1:110) {
+    obs_bin_wid <- 32 + 2 * (i - 1);
+    if (obs_bin_wid > mod_bin_wid && kbin < nbins) {
+      kbin <- kbin + 1
+      mod_bin_wid <- min_len + bin_width * (kbin - 1)
+    }
+    obs_len_freq_il[irec, kbin] <- obs_len_freq_il[irec, kbin] + as.numeric(lf_data[irec,-c(1:3)][i])
+  }
+  obs_len_freq_il[irec,] <- obs_len_freq_il[irec,] / sum(obs_len_freq_il[irec,])
+}
+
+ll <- seq(from = min_len, by = bin_width, length.out = nbins + 1) - 1
+
+lf1 <- lf_data %>%
+  pivot_longer(cols = !c(1:3), names_to = "Bin") %>%
+  mutate(Bin = as.numeric(Bin)) %>%
+  mutate(dBin = cut(Bin, breaks = ll, include.lowest = TRUE, right = FALSE)) %>%
+  filter(!is.na(dBin)) %>%
+  group_by(Fishery, Year, N, dBin) %>%
+  summarise(value = sum(value, na.rm = TRUE)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = dBin) %>%
+  left_join(fsh, by = join_by(Fishery == ifishery)) %>%
+  relocate(Fishery, Year, season, N) %>%
+  select(-fishery)
 
 c(data$first_yr:data$last_yr)[data$lf_year[data$lf_fishery == 1]]
 c(data$first_yr:data$last_yr)[data$cpue_years]
-ii <- which(data$lf_fishery == 1 & data$lf_year %in% data$cpue_years)
-data$cpue_lfs <- data$lf_obs[ii,]
-# data$cpue_lfs <- cpue_lfs[,] # NEED TO READ THIS IN AS IN prepare-data.R to make it fit
-data$cpue_n <- data$lf_n[ii]
+# ii <- which(data$lf_fishery == 1 & data$lf_year %in% data$cpue_years)
+# data$cpue_lfs <- data$lf_obs[ii,]
+# data$cpue_n <- data$lf_n[ii]
+data$cpue_lfs <- obs_len_freq_il
+data$cpue_n <- lf_data$N
 
 source("../R/rtmb_functions.R")
 xx <- get_selectivity(data$n_age, data$max_age, data$first_yr, data$first_yr_catch, 
@@ -207,11 +242,13 @@ plot_lf(data = data, object = obj, fishery = "LL4")
 plot_af(data = data, object = obj, fishery = "Indonesian")
 plot_af(data = data, object = obj, fishery = "Australian")
 plot_cpue(data = data, object = obj)
+plot_biomass_spawning(data = data, object = obj)
 
 plot(obj$report()$number_ysa[39,2,], type = "l")
 plot(obj$report()$sel_fya[7,39,], type = "l")
 plot(obj$report()$number_ysa[39,2,] * obj$report()$sel_fya[7,39,], type = "l")
 plot(obj$report()$cpue_lf_pred[1,], type = "l")
+plot(obj$report()$spawning_biomass_y, type = "l")
 
 data.frame(fishery = data$af_fishery, value = obj$report()$lp_af) %>% 
   group_by(fishery) %>% 
