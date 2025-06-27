@@ -56,7 +56,6 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, first_yr, M_a, hr
       }
     }
   }
-  lp <- numeric(ntaglike)
   
   # Survival and exploitation rates for tagged fish by age and tagger
   for (k in seq_len(n_K)) {
@@ -123,6 +122,7 @@ get_tag_like <- function(tag_switch, minK, n_K, n_T, n_I, n_J, first_yr, M_a, hr
   }
   
   # 8) log-likelihood under beta-binomial
+  lp <- numeric(ntaglike)
   if (tag_switch > 0) {
     index <- 1
     for (k in seq_len(n_K)) {
@@ -187,7 +187,7 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
   cov_matrix <- aerial_cov + I * aerial_tau2
   cov_inv <- solve(cov_matrix)
   
-  # Aerial selectivity (3 ages: 2, 3, 4)
+  # Aerial selectivity (ages 2, 3, and 4)
   if (aerial_switch == 0) {
     aerial_sel <- c(0.5, 1, 1)
   } else if (aerial_switch == 1) {
@@ -210,7 +210,7 @@ get_aerial_survey_like <- function(aerial_switch, aerial_years, aerial_obs, aeri
     #  aerial_pred[i] <- aerial_pred[i] + number_ysa[y, 1, a + 2] * weight_fya[6, y, a + 2] * aerial_sel[a]
     #}
   }
-  aerial_resid <- log(aerial_obs) - log(aerial_pred) # Residuals (log obs - log pred)
+  aerial_resid <- log(aerial_obs) - log(aerial_pred) # Residuals
   aerial_log_q <- sum(cov_inv %*% aerial_resid) / sum(cov_inv) # Estimate log_q
   aerial_resid <- aerial_resid - aerial_log_q
   aerial_pred <- aerial_pred * exp(aerial_log_q) # Scale predictions
@@ -248,23 +248,19 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) 
   n_age <- ncol(phi_ya)
   lp <- numeric(n_pops)
   for (i in seq_len(n_pops)) {
+    cc <- pop_obs[i, 1]
+    yy <- pop_obs[i, 2]
+    nP <- pop_obs[i, 5]
+    nC <- pop_obs[i, 6]
     if (pop_obs[i, 4] == 0) { # Adult has a direct age
-      cc <- pop_obs[i, 1] 
-      yy <- pop_obs[i, 2]
-      aa <- pop_obs[i, 3] + 1 # estimated age of adult @ time of capture
+      aa <- pop_obs[i, 3] + 1 # Estimated age of adult at time of capture
       ba <- ifelse(aa - (yy - cc) < 1, 1, aa - (yy - cc))
       ba <- min(ba, n_age)
-      nP <- pop_obs[i, 5]
-      nC <- pop_obs[i, 6]
-      pp <- (2 * phi_ya[cc, ba]) / spawning_biomass_y[cc] # parental probability
+      pp <- (2 * phi_ya[cc, ba]) / spawning_biomass_y[cc] # Parental probability
     }
     if (pop_obs[i, 4] == 1) { # Adult has observed length only
-      cc <- pop_obs[i, 1] 
-      yy <- pop_obs[i, 2]
-      ll <- pop_obs[i, 3] # observed length bin of adult @ time of capture
-      nP <- pop_obs[i, 5]
-      nC <- pop_obs[i, 6]
-      amin <- yy - cc + 1 # anything younger than this can't be a parent
+      ll <- pop_obs[i, 3] # Observed length bin of adult at time of capture
+      amin <- yy - cc + 1 # Anything younger than this can't be a parent
       arng <- amin:n_age
       ba <- arng - (yy - cc)
       pp <- (2 / spawning_biomass_y[cc]) * sum(paly[ll, arng, yy] * phi_ya[cc, ba])
@@ -299,14 +295,13 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
   n_year <- nrow(phi_ya)
   n_age <- ncol(phi_ya)
   lp <- numeric(n_hsp)
+  nK <- hsp_obs[, 5]
+  # nK <- OBS(nK) # tag it for simulation
   # Calculate the relative age distribution in the adults for each year and age
   gamx_ya <- matrix(0, nrow = n_year, ncol = n_age)
   for (y in seq_len(n_year)) {
-    # Use season 2 for numbers-at-age of adults
-    gamx_ya[y,] <- number_ysa[y, 2,] * phi_ya[y,] / spawning_biomass_y[y]
+    gamx_ya[y,] <- number_ysa[y, 2,] * phi_ya[y,] / spawning_biomass_y[y] # Use season 2 for numbers-at-age of adults
   }
-  nK <- hsp_obs[, 5]
-  # nK <- OBS(nK) # tag it for simulation
   for (i in seq_len(n_hsp)) {
     cmin <- hsp_obs[i, 1] + 1
     cmax <- hsp_obs[i, 2] + 1
@@ -342,11 +337,7 @@ get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative,
     pp <- 4 * hsp_q * xtmp / spawning_biomass_y[cmax]
     phsp <- pp * hsp_false_negative
     if (hsp_switch > 0) lp[i] <- -dbinom(nK[i], nC, pp, log = TRUE)
-    # if (hsp_switch > 0 && phsp > 0) {
-      # if (nK > 0) {
-        #lp[i] <- -(nK * log(phsp) + (nC - nK) * log(1 - phsp))
-      # } else {
-      #   lp[i] <- -nC * log(1 - phsp)
+    # if (hsp_switch > 0 && phsp > 0) { if (nK > 0) {lp[i] <- -(nK * log(phsp) + (nC - nK) * log(1 - phsp)) } else lp[i] <- -nC * log(1 - phsp)
   }
   return(lp)
 }
@@ -457,7 +448,6 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
   cpue_adjust <- cpue_log_pred <- numeric(n_cpue)
   cpue_adjust[1] <- 1
   for (i in 2:n_cpue) cpue_adjust[i] <- cpue_adjust[i - 1] + par_cpue_creep
-  
   for (i in seq_len(n_cpue)) {
     y <- cpue_years[i]
     cpue_sel <- sel_fya[1, y, 5:n_age]
@@ -545,7 +535,6 @@ get_length_like <- function(removal_switch_f, lf_year, lf_season, lf_fishery, lf
   n_age <- dim(catch_pred_fya)[3]
   lp <- numeric(n_lf)
   lf_pred <- matrix(0, n_lf, n_bins)
-  
   for (i in seq_len(n_lf)) {
     y <- lf_year[i]
     s <- lf_season[i]
@@ -581,9 +570,9 @@ get_length_like <- function(removal_switch_f, lf_year, lf_season, lf_fishery, lf
 #' @param troll_sd Observation standard errors.
 #' @param troll_tau Process error.
 #' @param number_ysa 3D array of numbers-at-age.
-#'
 #' @return List of predicted values, residuals, and log-likelihoods.
 #' @export
+#'
 get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll_tau, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -602,7 +591,7 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll
   troll_log_obs <- log(troll_obs)
   troll_res <- (troll_obs - troll_pred) / troll_sig
   #if (troll_switch > 0) lp <- log(troll_sig) + 0.5 * troll_res^2
-  if (troll_switch > 0) lp <- -dnorm(troll_log_obs, troll_log_pred, troll_sig, log=TRUE) 
+  if (troll_switch > 0) lp <- -dnorm(troll_log_obs, troll_log_pred, troll_sig, log = TRUE) 
   return(list(pred = troll_pred, resid = troll_res, lp = lp))
 }
 
@@ -613,9 +602,9 @@ get_troll_like <- function(troll_switch, troll_years, troll_obs, troll_sd, troll
 #' @param gt_switch Integer switch to activate likelihood.
 #' @param gt_obs Matrix of GT data [year_rel, age_rel, year_rec, nrel, nscan, nrec].
 #' @param number_ysa 3D array [year, season, age] of numbers-at-age.
-#'
 #' @return Negative log-likelihood vector per observation.
 #' @export
+#'
 get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -631,8 +620,7 @@ get_GT_like <- function(gt_switch, gt_obs, number_ysa) {
     # yrec <- gt_obs[i, 3] # not used here
     nrel <- gt_obs[i, 4]
     nscan <- gt_obs[i, 5]
-    # Expected probability of recapture. Uses season 1 numbers-at-age.
-    pgt <- nrel / (gt_q * number_ysa[yrel, 1, arel])
+    pgt <- nrel / (gt_q * number_ysa[yrel, 1, arel]) # Expected probability of recapture. Uses season 1 numbers-at-age.
     # Avoid log(0) and log(negative) by bounding pgt
     # pgt <- min(max(pgt, 1e-10), 1 - 1e-10)
     # Binomial log-likelihood
@@ -706,7 +694,7 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, removal_switch_f,
   }
   h_rate_a <- colSums(h_rate_fa)
   tmp <- posfun(x = 1 - sum(F_f), eps = 0.001)
-  return(list(h_rate_a = h_rate_a, h_rate_fa = h_rate_fa, F_f = F_f, penalty = tmp$penalty))
+  return(list(h_rate_a = h_rate_a, h_rate_fa = h_rate_fa, penalty = tmp$penalty))
 }
 
 #' Estimate Temporal Autocorrelation in Recruitment Deviations
@@ -716,9 +704,9 @@ get_harvest_rate <- function(y, s, first_yr, first_yr_catch, removal_switch_f,
 #' @param first_yr First model year.
 #' @param last_yr Last model year.
 #' @param rdev Vector of recruitment deviations.
-#'
 #' @return Estimated autocorrelation (tau_ac2).
 #' @export
+#'
 get_rho <- function(first_yr, last_yr, rdev) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -753,6 +741,7 @@ get_rho <- function(first_yr, last_yr, rdev) {
 #'   \item{beta}{BH beta parameter.}
 #' }
 #' @export
+#'
 get_initial_numbers <- function(B0, steep, M_a, phi_ya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -874,16 +863,16 @@ get_selectivity <- function(n_age, max_age, first_yr, first_yr_catch,
 #'
 #' Calculates spawning output per recruit at age and year using length-based maturity and fecundity scaling.
 #'
-#' @param psi Scalar fecundity scaling exponent.
+#' @param log_psi Scalar fecundity scaling exponent.
 #' @param length_m50 Length at 50% maturity.
 #' @param length_m95 Length at 95% maturity.
 #' @param length_mu_ysa 3D array [year, season, age] of expected length-at-age.
 #' @param length_sd_a Vector of length standard deviations at age.
 #' @param dl_yal 3D array [year, age, length_bin] of length distribution weights.
-#'
 #' @return Matrix [year + 1, age] of normalized spawning output-at-age.
 #' @export
-get_phi <- function(psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal) {
+#'
+get_phi <- function(log_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
@@ -891,6 +880,7 @@ get_phi <- function(psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_
   n_year <- nrow(length_mu_ysa)
   n_bins <- 15
   phi_ya <- matrix(0, n_year + 1, n_age)
+  psi <- exp(log_psi)
   for (iy in seq_len(n_year)) {
     phi_a <- numeric(n_age)
     for (ia in seq_len(n_age)) {
@@ -924,9 +914,9 @@ get_phi <- function(psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_
 #' @param m4 M at age-4 (controls slope of decline).
 #' @param m10 M at age-10 (base for flat zone).
 #' @param m30 M at age-30 (terminal age M).
-#'
 #' @return Vector of M-at-age values.
 #' @export
+#'
 get_M <- function(min_age, max_age, age_increase_M, m0, m4, m10, m30) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -975,6 +965,7 @@ rho_trans <- function(x) {
 #' }
 #' @importFrom RTMB ADoverload logspace_add
 #' @export
+#'
 posfun <- function(x, eps = 0.001) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")

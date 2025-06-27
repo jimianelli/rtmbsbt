@@ -18,7 +18,7 @@ data <- list(
   length_m50 = 150, length_m95 = 180, 
   catch_UR_on = 0, catch_surf_case = 1, catch_LL1_case = 1, 
   scenarios_surf = scenarios_surface, scenarios_LL1 = scenarios_LL1,
-  removal_switch_f = c(0, 0, 0, 0, 0, 0), # 0=harvest rate, 1=direct removals
+  removal_switch_f = c(0, 0, 0, 1, 0, 0), # 0=harvest rate, 1=direct removals
   sel_min_age_f = c(2, 2, 2, 8, 6, 0), 
   sel_max_age_f = c(17, 9, 17, 22, 25, 7),
   sel_end_f = c(1, 0, 1, 1, 1, 0),
@@ -49,7 +49,7 @@ xx <- get_selectivity(data$n_age, data$max_age, data$first_yr, data$first_yr_cat
                       data$sel_min_age_f, data$sel_max_age_f, data$sel_end_f, data$sel_change_year_fy,
                       data_par1$par_sels_init_i, data_par1$par_sels_change_i)
 
-data$sel_change_year_fy[,data$first_yr_catch - data$first_yr + 1] <- 1 # must stay here
+data$sel_change_year_fy[,data$first_yr_catch - data$first_yr + 1] <- 1 # must stay here for now
 
 par_sel <- list()
 for (f in 1:6) {
@@ -64,12 +64,16 @@ for (i in 55:75) lines(xx[1,i,], col = i)
 plot(exp(par_sel[[1]][1,]), type = "l")
 for (i in 2:10) lines(exp(par_sel[[1]][i,]), col = i)
 
-sel_phi <- matrix(0, nrow = 6, ncol = 2)
-sel_scale <- matrix(0, nrow = 6, ncol = 2)
-sel_phi[,1] <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
-sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
-sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # year
-sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # age
+# sel_phi <- matrix(0, nrow = 6, ncol = 2)
+# sel_scale <- matrix(0, nrow = 6, ncol = 2)
+# sel_phi[,1] <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
+# sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
+# sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # year
+# sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # age
+rho_y <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
+rho_a <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
+sigma <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) * sqrt(1 - rho_y^2) * sqrt(1 - rho_a^2)
+(scale <- sqrt(sigma^2) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2))
 
 parameters <- list(
   par_log_B0 = data_par1$ln_B0,
@@ -78,7 +82,8 @@ parameters <- list(
   par_log_m4 = log(data_par1$m4),
   par_log_m10 = log(data_par1$m10), 
   par_log_m30 = log(data_par1$m30),
-  par_log_h = log(data_par1$steep), 
+  par_log_h = log(data_par1$steep),
+  # par_log_h = log(0.8),
   par_log_sigma_r = log(lr$sigma.r), 
   par_rdev_y = data_par1$Reps,
   par_log_sel_1 = par_sel[[1]],
@@ -87,8 +92,12 @@ parameters <- list(
   par_log_sel_4 = par_sel[[4]],
   par_log_sel_5 = par_sel[[5]],
   par_log_sel_6 = par_sel[[6]],
-  par_log_sel_phi = log(sel_phi),
-  par_log_sel_scale = log(sel_scale),
+  par_log_sel_7 = par_sel[[7]],
+  par_sel_rho_y = rho_y,
+  par_sel_rho_a = rho_a,
+  par_log_sel_sigma = log(sigma),
+  # par_log_sel_phi = log(sel_phi),
+  # par_log_sel_scale = log(sel_scale),
   par_log_cpue_q = data_par1$lnq,
   par_cpue_creep = 0.005,
   par_log_cpue_sigma = log(data_par1$sigma_cpue),
@@ -99,15 +108,6 @@ parameters <- list(
   par_log_hsp_q = data_par1$lnqhsp, 
   par_log_tag_H_factor = log(data_par1$tag_H_factor)
 )
-
-# par_sel[[6]][139]
-# par_sel[[6]][3,5]
-# which(par_sel[[6]] == par_sel[[6]][94], arr.ind = TRUE)
-# par_sel[[6]][26,3]
-# which(par_sel[[3]] == par_sel[[3]][64], arr.ind = TRUE)
-# which(par_sel[[5]] == par_sel[[5]][313], arr.ind = TRUE)
-# plot(par_sel[[5]][13,])
-# for (i in 1:20) lines(par_sel[[5]][i,])
 
 map <- list()
 map[["par_log_psi"]] <- factor(NA)
@@ -122,13 +122,16 @@ map[["par_log_aerial_tau"]] <- factor(NA)
 map[["par_log_aerial_sel"]] <- factor(rep(NA, 2))
 map[["par_log_hsp_q"]] <- factor(NA)
 map[["par_log_tag_H_factor"]] <- factor(NA)
-# map[["par_log_sel_4"]] <- factor(matrix(NA, nrow = nrow(parameters$par_log_sel_4), ncol = ncol(parameters$par_log_sel_4)))
-map_phi <- matrix(NA, nrow = 6, ncol = 2)
-# map_phi[6,] <- c(1, 2)
-map[["par_log_sel_phi"]] <- factor(map_phi)
-map_scale <- matrix(NA, nrow = 6, ncol = 2)
-# map_scale[6,] <- c(1, 1)
-map[["par_log_sel_scale"]] <- factor(map_scale)
+map[["par_log_sel_4"]] <- factor(matrix(NA, nrow = nrow(parameters$par_log_sel_4), ncol = ncol(parameters$par_log_sel_4)))
+map[["par_sel_rho_y"]] <- factor(rep(NA, 6))
+map[["par_sel_rho_a"]] <- factor(rep(NA, 6))
+map[["par_log_sel_sigma"]] <- factor(rep(NA, 6))
+# map_phi <- matrix(NA, nrow = 6, ncol = 2)
+# # map_phi[6,] <- c(1, 2)
+# map[["par_log_sel_phi"]] <- factor(map_phi)
+# map_scale <- matrix(NA, nrow = 6, ncol = 2)
+# # map_scale[6,] <- c(1, 1)
+# map[["par_log_sel_scale"]] <- factor(map_scale)
 
 source("../R/model.R")
 source("../R/rtmb_functions.R")
@@ -157,6 +160,16 @@ ce[[4]] %>% filter(Param_check != "OK")
 # obj$report()$spawning_biomass_y
 # opt$par[1:10]
 # obj$par <- opt$par
+
+# Check OK to use 2DAR1 for single year ----
+
+f <- 4
+sigma2 <- exp(parameters$par_log_sel_sigma[f])^2
+scale <- sqrt(sigma2) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2) # Define 2d scale
+f1 <- function(x) dautoreg(x, phi = 0.7, log = TRUE) # year
+f2 <- function(x) dautoreg(x, phi = 0.9, log = TRUE) # age
+dseparable(f1, f2)(par_sel[[4]], scale = scale)
+dautoreg(par_sel[[4]][1,], phi = 0.9, log = TRUE, scale = scale)
 
 exp(obj$par[names(obj$par) %in% c("par_log_sel_phi", "par_log_sel_scale")])
 
@@ -197,13 +210,13 @@ mcmc <- sample_sparse_tmb(
                  get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
                  get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
 
-save(mcmc, file = "mcmc_no4.rda")
+save(data, parameters, obj, opt, mcmc, file = "mcmc__3divergences.rda")
 plot_sampler_params(fit = mcmc, plot = TRUE)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
-decamod::pairs_rtmb(fit = mcmc, order = "orig", pars = 151:160)
 library(ellipse)
 library(GGally)
+source("../../../decamod/R/plots.R")
 pairs_rtmb(fit = mcmc, order = "divergent", pars = 1:5)
 plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)

@@ -3,7 +3,7 @@
 #' Obtain the negative log-likelihood (NLL) value from the sbt model.
 #' 
 #' @param parameters a \code{list} of parameter values.
-#' @param data a \code{list} of inputs.
+#' @param data a \code{list} of data inputs.
 #' @return the negative log-likelihood (NLL) value.
 #' @importFrom RTMB getAll REPORT ADREPORT ADoverload plogis dnorm dlnorm dgamma dmultinom
 #' @importFrom stats dcauchy
@@ -21,7 +21,6 @@ sbt_model <- function(parameters, data) {
   # Transformations
   
   par_B0 <- exp(par_log_B0)
-  par_psi <- exp(par_log_psi)
   par_hsp_q <- exp(par_log_hsp_q)
   par_m0 <- exp(par_log_m0)
   par_m4 <- exp(par_log_m4)
@@ -39,21 +38,15 @@ sbt_model <- function(parameters, data) {
   
   M_a <- get_M(min_age, max_age, age_increase_M, par_m0, par_m4, par_m10, par_m30)
   S_a <- exp(-0.5 * M_a)
-  phi_ya <- get_phi(par_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
+  phi_ya <- get_phi(par_log_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
   # for (i in 2:93) phi_ya[i,] <- phi_ya[1,]
   # sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch,
   #                            sel_min_age_f, sel_max_age_f, sel_end_f,
   #                            sel_change_year_fy, par_sels_init_i, par_sels_change_i)
-  par_log_sel_fya <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6)
+  par_log_sel_fya <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6, par_log_sel_7)
   sel_fya <- get_selectivity2(n_age, max_age, first_yr, first_yr_catch,
-                              sel_min_age_f, sel_max_age_f, sel_end_f,
-                              sel_change_year_fy, par_log_sel_fya)
-  lp_sel <- numeric(n_fishery)
-  for (f in seq_len(n_fishery)) {
-    f1 <- function(x) dautoreg(x, phi = exp(par_log_sel_phi[f, 1]), log = TRUE, scale = exp(par_log_sel_scale[f, 1])) # year
-    f2 <- function(x) dautoreg(x, phi = exp(par_log_sel_phi[f, 2]), log = TRUE, scale = exp(par_log_sel_scale[f, 2])) # age
-    lp_sel[f] <- -dseparable(f1, f2)(par_log_sel_fya[[f]])
-  }
+                              sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy, 
+                              par_log_sel_fya)
   
   # Initial conditions
   
@@ -119,6 +112,19 @@ sbt_model <- function(parameters, data) {
 
   # Priors
   
+  sigma2 <- exp(par_log_sel_sigma)^2
+  lp_sel <- numeric(n_fishery)
+  for (f in seq_len(n_fishery)) {
+    rho_y <- par_sel_rho_y[f]
+    rho_a <- par_sel_rho_a[f]
+    scale <- sqrt(sigma2[f]) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2) # Define 2d scale
+    f1 <- function(x) dautoreg(x, phi = rho_y, log = TRUE) # year
+    f2 <- function(x) dautoreg(x, phi = rho_a, log = TRUE) # age
+    lp_sel[f] <- -dseparable(f1, f2)(par_log_sel_fya[[f]], scale = scale)
+    # f1 <- function(x) dautoreg(x, phi = exp(par_log_sel_phi[f, 1]), log = TRUE, scale = exp(par_log_sel_scale[f, 1])) # year
+    # f2 <- function(x) dautoreg(x, phi = exp(par_log_sel_phi[f, 2]), log = TRUE, scale = exp(par_log_sel_scale[f, 2])) # age
+    # lp_sel[f] <- -dseparable(f1, f2)(par_log_sel_fya[[f]])
+  }
   lp_rec <- get_recruitment_prior(par_rdev_y, par_sigma_r, tau_ac2)
   lp_m10 <- 0
   lp_h <- 0
@@ -164,7 +170,6 @@ sbt_model <- function(parameters, data) {
   # Reporting
   
   REPORT(par_B0)
-  REPORT(par_psi)
   REPORT(par_hsp_q)
   REPORT(par_m0)
   REPORT(par_m4)
