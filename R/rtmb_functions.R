@@ -284,6 +284,7 @@ get_POP_like <- function(pop_switch, pop_obs, phi_ya, paly, spawning_biomass_y) 
 #' @param spawning_biomass_y Vector of spawning biomass by year.
 #' @param hrate_ysa 3D array [year, season, age] of harvest rates.
 #' @return Vector of negative log-likelihood contributions for each observation.
+#' @importFrom RTMB ADoverload dbinom
 #' @export
 #'
 get_HSP_like <- function(hsp_switch, hsp_obs, hsp_q, hsp_false_negative, 
@@ -414,9 +415,9 @@ get_recruitment_prior <- function(rdev_y, sigma_r, tau_ac2) {
   n_year <- length(rdev_y)
   r1 <- rdev_y[1:(n_year - 3)]
   r2 <- rdev_y[(n_year - 2):n_year]
-  lp <- n_year * log(sigma_r)
-  lp <- lp + 0.5 * sum(r1^2) / sigma_r^2
-  lp <- lp + 0.5 * sum(r2^2) / (sigma_r^2 * (1 - tau_ac2^2))
+  lp <- n_year * log(sigma_r) + 
+    0.5 * sum(r1^2) / sigma_r^2 + 
+    0.5 * sum(r2^2) / (sigma_r^2 * (1 - tau_ac2^2))
   return(lp)
 }
 
@@ -469,7 +470,7 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
   return(list(pred = cpue_pred, resid = cpue_resid, lp = lp))
 }
 
-#' Age Composition Likelihood
+#' Age composition likelihood
 #'
 #' Calculates the multinomial likelihood for observed age compositions.
 #'
@@ -480,9 +481,9 @@ get_cpue_like <- function(cpue_switch, cpue_a1 = 5, cpue_a2 = 17,
 #' @param af_obs Matrix of observed proportions-at-age.
 #' @param af_n Vector of effective sample sizes.
 #' @param catch_pred_fya 3D array [fishery, year, age] of predicted catch.
-#'
-#' @return List with predicted age compositions and log-likelihoods.
+#' @return List with predicted age compositions and negative log-likelihoods.
 #' @export
+#' 
 get_age_like <- function(removal_switch_f, af_year, af_fishery, af_min_age, af_max_age, af_obs, af_n, catch_pred_fya) {
   "[<-" <- ADoverload("[<-")
   "c" <- ADoverload("c")
@@ -525,6 +526,7 @@ get_age_like <- function(removal_switch_f, af_year, af_fishery, af_min_age, af_m
 #' @param alk_ysal 4D array [year, season, age, length_bin] of ALKs.
 #' @return List with predicted compositions and likelihood contributions.
 #' @export
+#' 
 get_length_like <- function(removal_switch_f, lf_year, lf_season, lf_fishery, lf_minbin, lf_obs, 
                             lf_n, catch_pred_fya, alk_ysal) {
   "[<-" <- ADoverload("[<-")

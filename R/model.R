@@ -40,9 +40,6 @@ sbt_model <- function(parameters, data) {
   S_a <- exp(-0.5 * M_a)
   phi_ya <- get_phi(par_log_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal)
   # for (i in 2:93) phi_ya[i,] <- phi_ya[1,]
-  # sel_fya <- get_selectivity(n_age, max_age, first_yr, first_yr_catch,
-  #                            sel_min_age_f, sel_max_age_f, sel_end_f,
-  #                            sel_change_year_fy, par_sels_init_i, par_sels_change_i)
   par_log_sel_fya <- list(par_log_sel_1, par_log_sel_2, par_log_sel_3, par_log_sel_4, par_log_sel_5, par_log_sel_6, par_log_sel_7)
   sel_fya <- get_selectivity2(n_age, max_age, first_yr, first_yr_catch,
                               sel_min_age_f, sel_max_age_f, sel_end_f, sel_change_year_fy, par_log_sel_fya)

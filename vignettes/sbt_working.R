@@ -19,15 +19,17 @@ data <- list(
   catch_UR_on = 0, catch_surf_case = 1, catch_LL1_case = 1, 
   scenarios_surf = scenarios_surface, scenarios_LL1 = scenarios_LL1,
   removal_switch_f = c(0, 0, 0, 1, 0, 0), # 0=harvest rate, 1=direct removals
-  sel_min_age_f = c(2, 2, 2, 8, 6, 0), 
-  sel_max_age_f = c(17, 9, 17, 22, 25, 7),
-  sel_end_f = c(1, 0, 1, 1, 1, 0),
-  sel_change_sd_fy = t(as.matrix(sel_change_sd[,-1])), 
+  
+  sel_min_age_f = c(2, 2, 2, 8, 6, 0, 2), # REMOVE f AS DIMENSION
+  sel_max_age_f = c(17, 9, 17, 22, 25, 7, 17),
+  sel_end_f = c(1, 0, 1, 1, 1, 0, 1),
+  sel_change_sd_fy = t(as.matrix(sel_change_sd[,-1])), # CHANGE TO sel_change_year_fy
+  
   pop_switch = 1, 
   hsp_switch = 1, hsp_false_negative = 0.7467647, 
   gt_switch = 1,
   cpue_switch = 1, cpue_a1 = 5, cpue_a2 = 17,
-  aerial_switch = 4, aerial_tau = data_labrep1$tau.aerial, 
+  aerial_switch = 4, aerial_tau = 0.3, 
   troll_switch = 1, 
   lf_minbin = c(1, 1, 1, 11),
   tag_switch = 1, tag_var_factor = 1.82
@@ -83,9 +85,6 @@ lf1 <- lf_data %>%
 
 c(data$first_yr:data$last_yr)[data$lf_year[data$lf_fishery == 1]]
 c(data$first_yr:data$last_yr)[data$cpue_years]
-# ii <- which(data$lf_fishery == 1 & data$lf_year %in% data$cpue_years)
-# data$cpue_lfs <- data$lf_obs[ii,]
-# data$cpue_n <- data$lf_n[ii]
 data$cpue_lfs <- obs_len_freq_il
 data$cpue_n <- lf_data$N
 
@@ -97,9 +96,6 @@ xx2 <- array(0, dim = c(7, 92, 31))
 xx2[1:6,,] <- xx
 xx2[7,,] <- xx[1,,]
 xx <- xx2
-data$sel_min_age_f <- c(data$sel_min_age_f, 2)
-data$sel_max_age_f <- c(data$sel_max_age_f, 17)
-data$sel_end_f <- c(data$sel_end_f, 1)
 data$sel_change_year_fy <- rbind(data$sel_change_year_fy, data$sel_change_year_fy[1,])
 data$sel_change_year_fy[,data$first_yr_catch - data$first_yr + 1] <- 1 # must stay here for now
 data$sel_change_year_fy[7,1:38] <- 0
@@ -117,49 +113,26 @@ for (i in 55:75) lines(xx[1,i,], col = i)
 plot(exp(par_sel[[1]][1,]), type = "l")
 for (i in 2:10) lines(exp(par_sel[[1]][i,]), col = i)
 
-# sel_phi <- matrix(0, nrow = 6, ncol = 2)
-# sel_scale <- matrix(0, nrow = 6, ncol = 2)
-# sel_phi[,1] <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
-# sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
-# sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # year
-# sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # age
-rho_y <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5, 0.7) # year
-rho_a <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5, 0.9) # age
-sigma <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5, 1) * sqrt(1 - rho_y^2) * sqrt(1 - rho_a^2)
-(scale <- sqrt(sigma^2) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2))
-
 parameters <- list(
-  par_log_B0 = data_par1$ln_B0,
-  par_log_psi = log(data_par1$psi),
-  par_log_m0 = log(data_par1$m0), 
-  par_log_m4 = log(data_par1$m4),
-  par_log_m10 = log(data_par1$m10), 
-  par_log_m30 = log(data_par1$m30),
-  par_log_h = log(data_par1$steep),
+  par_log_B0 = 16.19836, par_log_psi = log(1.5),
+  par_log_m0 = log(0.4), par_log_m4 = log(0.1670507),
+  par_log_m10 = log(0.065), par_log_m30 = log(0.45741),
+  par_log_h = log(0.55),
   # par_log_h = log(0.8),
-  par_log_sigma_r = log(lr$sigma.r), 
-  par_rdev_y = data_par1$Reps,
-  par_log_sel_1 = par_sel[[1]],
-  par_log_sel_2 = par_sel[[2]],
-  par_log_sel_3 = par_sel[[3]],
-  par_log_sel_4 = par_sel[[4]],
-  par_log_sel_5 = par_sel[[5]],
-  par_log_sel_6 = par_sel[[6]],
-  par_log_sel_7 = par_sel[[7]],
-  par_sel_rho_y = rho_y,
-  par_sel_rho_a = rho_a,
-  par_log_sel_sigma = log(sigma),
-  # par_log_sel_phi = log(sel_phi),
-  # par_log_sel_scale = log(sel_scale),
-  par_log_cpue_q = data_par1$lnq,
-  par_cpue_creep = 0.005,
-  par_log_cpue_sigma = log(data_par1$sigma_cpue),
-  par_log_cpue_omega = log(data_par1$cpue_omega),
-  par_log_aerial_tau = log(data_par1$tau_aerial),
-  par_log_aerial_sel = data_par1$ln_sel_aerial,
-  par_log_troll_tau = log(data_par1$tau_troll),
-  par_log_hsp_q = data_par1$lnqhsp, 
-  par_log_tag_H_factor = log(data_par1$tag_H_factor)
+  par_log_sigma_r = log(0.6), 
+  par_log_cpue_q = -0.02033773, par_cpue_creep = 0.005,
+  par_log_cpue_sigma = log(0.2), par_log_cpue_omega = log(1),
+  par_log_aerial_tau = log(0.3), par_log_aerial_sel = c(0, 0),
+  par_log_troll_tau = log(0.3689704), par_log_hsp_q = 0, 
+  par_log_tag_H_factor = log(1),
+  par_sel_rho_y = c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5, 0.7),
+  par_sel_rho_a = c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5, 0.9),
+  par_log_sel_sigma = log(c(0.31, 0.25, 0.75, 0.25, 0.38, 1.13, 0.31)),
+  par_log_sel_1 = par_sel[[1]], par_log_sel_2 = par_sel[[2]],
+  par_log_sel_3 = par_sel[[3]], par_log_sel_4 = par_sel[[4]],
+  par_log_sel_5 = par_sel[[5]], par_log_sel_6 = par_sel[[6]],
+  par_log_sel_7 = par_sel[[7]], 
+  par_rdev_y = data_par1$Reps
 )
 
 map <- list()
@@ -179,12 +152,6 @@ map[["par_log_sel_4"]] <- factor(matrix(NA, nrow = nrow(parameters$par_log_sel_4
 map[["par_sel_rho_y"]] <- factor(rep(NA, 7))
 map[["par_sel_rho_a"]] <- factor(rep(NA, 7))
 map[["par_log_sel_sigma"]] <- factor(rep(NA, 7))
-# map_phi <- matrix(NA, nrow = 6, ncol = 2)
-# # map_phi[6,] <- c(1, 2)
-# map[["par_log_sel_phi"]] <- factor(map_phi)
-# map_scale <- matrix(NA, nrow = 6, ncol = 2)
-# # map_scale[6,] <- c(1, 1)
-# map[["par_log_sel_scale"]] <- factor(map_scale)
 
 source("../R/model.R")
 source("../R/rtmb_functions.R")
@@ -196,7 +163,7 @@ obj$report()$lp_lf
 obj$fn()
 
 Params <- parameters
-bnd <- get_bounds(obj = obj)
+bnd <- get_bounds(obj = obj) # NEEDS WORK AND THE parameters AS INPUT
 
 control <- list(eval.max = 10000, iter.max = 10000)
 
@@ -209,14 +176,10 @@ opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = 
 
 ce <- check_estimability(obj = obj)
 ce[[4]] %>% filter(Param_check != "OK")
-# obj$par[1:10]
-# obj$report()$spawning_biomass_y
-# opt$par[1:10]
-# obj$par <- opt$par
 
 # Check OK to use 2DAR1 for single year ----
 
-f <- 4
+f <- 4 # ADD TO TEST
 sigma2 <- exp(parameters$par_log_sel_sigma[f])^2
 scale <- sqrt(sigma2) / sqrt(1 - rho_y^2) / sqrt(1 - rho_a^2) # Define 2d scale
 f1 <- function(x) dautoreg(x, phi = 0.7, log = TRUE) # year
@@ -268,16 +231,19 @@ mcmc <- sample_sparse_tmb(
   # lower = Lwr, upper = Upr, # these bounds dont seem to work
   globals = list(posfun = posfun, get_M = get_M, get_phi = get_phi, 
                  get_initial_numbers = get_initial_numbers, 
-                 get_recruitment = get_recruitment, get_harvest_rate = get_harvest_rate,
-                 get_rho = get_rho, 
-                 get_selectivity = get_selectivity, get_selectivity2 = get_selectivity2,
-                 get_sel_like = get_sel_like, get_recruitment_prior = get_recruitment_prior,
+                 get_recruitment = get_recruitment, 
+                 get_harvest_rate = get_harvest_rate,
+                 get_rho = get_rho, get_selectivity2 = get_selectivity2,
+                 get_sel_like = get_sel_like, get_tag_like = get_tag_like,
+                 get_recruitment_prior = get_recruitment_prior,
                  get_length_like = get_length_like, get_age_like = get_age_like, 
-                 get_cpue_like = get_cpue_like, get_tag_like = get_tag_like,
-                 get_aerial_survey_like = get_aerial_survey_like, get_troll_like = get_troll_like,
-                 get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, get_GT_like = get_GT_like))
+                 get_cpue_like = get_cpue_like, get_troll_like = get_troll_like,
+                 get_cpue_length_like = get_cpue_length_like, 
+                 get_aerial_survey_like = get_aerial_survey_like, 
+                 get_POP_like = get_POP_like, get_HSP_like = get_HSP_like, 
+                 get_GT_like = get_GT_like))
 
-save(data, parameters, obj, opt, mcmc, file = "mcmc__3divergences.rda")
+save(data, parameters, obj, opt, mcmc, file = "mcmc_0divergences.rda")
 plot_sampler_params(fit = mcmc, plot = TRUE)
 decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
