@@ -1,0 +1,314 @@
+---
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    theme: cosmo
+    code-fold: true          # enables collapsible code
+    code-tools: true         # optional: adds a show/hide button
+    # title-block-banner: true
+    # title-block-logo: images/ccsbt_logo.png
+    embed-resources: true
+bibliography: references.bib
+---
+
+<!-- Manually define your own title block -->
+<div style="display: flex; align-items: center; gap: 1em; margin-bottom: 1.5em;">
+  <img src="images/ccsbt_logo.png" width="100" alt="CCSBT logo" style="flex-shrink: 0;">
+  <div style="font-size: 2em; font-weight: bold;">
+ Mean Length Estimation Using CPUE and Size Frequency Data 
+  </div>
+</div>
+
+<div style="font-size: 1.2em; text-align: center; margin-bottom: 0.5em;">
+  June 2025 · Seattle, WA
+</div>
+
+---
+
+
+
+# Introduction
+
+This document describes the processing of Japanese longline size frequency and CPUE data to compute size composition of the catch based on both nominal and model-derived CPUE. The model-based CPUE is derived from a GAM (generalized additive model).
+
+# Data Input and Cleaning
+
+As a first step, files are read in and labelled consistently.
+
+```{r,  startup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(janitor)
+  library(here)
+})
+library(tidyverse)
+library(janitor)
+library(here)
+
+df1 <- read_csv(here("JP_CatchSize", "JP_Size.csv"), show_col_types = FALSE) |> clean_names()
+names(df1) <- c("year", "month", "lat5", "lon5", "length", "freq", "prec", "hooks")
+
+df2 <- read_csv(here("JP_CatchSize", "model_est.csv"), show_col_types = FALSE) |> clean_names()
+```
+
+## Spatial Adjustments and Filtering
+
+The data is filtered to include only records after 1968, and the spatial coordinates are adjusted by shifting the latitude and longitude by -2.5 and +2.5 degrees, respectively:
+
+```{r filter}
+df1 <- df1 |> 
+  filter(year > 1968) |> 
+  mutate(lat5 = lat5 - 2.5, lon5 = lon5 + 2.5)
+
+df2 <- df2 |> 
+  filter(year > 1968) |> 
+  mutate(jap_cpue = value)
+```
+
+## Normalized Length Frequencies by Cell
+
+Each record is normalized to yield proportions at length within each spatial-temporal cell:
+
+```{r}
+df1.1 <- df1 |>
+  group_by(year, month, lat5, lon5, length) |>
+  mutate(lft = sum(freq)) |>
+  ungroup() |>
+  group_by(year, month, lat5, lon5) |>
+  mutate(lfnorm = sum(freq), prop = lft / lfnorm)
+```
+
+$$
+\text{prop}{l} = \frac{\text{freq}{l}}{\sum_{l} \text{freq}_{l}}
+$$
+
+## Merge with CPUE Data
+
+```{r join}
+dfj <- df1.1 |> inner_join(df2)
+```
+
+#  Size composition from CPUE-weighted Frequencies
+
+We compute length-frequency estimates weighted by (for eacy $i$ year-month-area grid):
+
+- **Nominal CPUE**: 
+
+$$
+u_i = \frac{\sum_i \text{catch}_i}{\sum{\text{hooks}}}
+$$
+
+(by year, month, and 5x5 degree spatial block)
+
+- **Model-based CPUE**: from the GAM model output we have the predicted CPUE by 
+year, month, 5x5 cell to get $\text{CPUE}_i$. See `jap_cpue` code in previous section.
+
+Then for each length bin:
+
+$$
+\bar{lf}^{\text{nom}}_l = \sum_i u_i \cdot \text{prop}_{il}, \quad
+$$
+
+$$
+\bar{lf}^{\text{gam}}_l = \sum_i \text{CPUE}_i \cdot \text{prop}_{il}
+$$
+
+And annual proportions:
+
+$$
+p_l^{\text{nom}} = \frac{lf_l^{\text{nom}}}{\sum_l lf_l^{\text{nom}}}, \quad
+p_l^{\text{gam}} = \frac{lf_l^{\text{gam}}}{\sum_l lf_l^{\text{gam}}}
+$$
+
+Mean lengths (for a given year; index dropped for clarity):
+
+$$
+\bar{L}_{\text{nom}} = \sum_l l \cdot p_l^{\text{nom}}, \quad
+\bar{L}_{\text{gam}} = \sum_l l \cdot p_l^{\text{gam}}
+$$
+
+As a diagnostic to compare with the GAM CPUE, we can also compute mean lengths from the assessment model's length frequency data. This is done by summing the product of length and proportion for each year.
+Comparing these values shows that the mean lengths from the GAM CPUE data and the 
+nominal CCSBT data are similar, but not identical. The GAM CPUE is a model-based
+estimate that may differ from the nominal CPUE due to smoothing and other 
+adjustments in the GAM (@fig-meanlen). 
+Importantly, the fact that the GAM and the nominal composition data differ more substantially from
+the catch-at-length data from the CCSBT assessment model. This suggests that the 
+GAM CPUE catch composition data should be used to align most appropriately with the
+Japanese-based CPUE data.
+
+```{r}
+#| label: fig-meanlen
+#| fig.cap: "Mean lengths of SBT by year from the CCSBT data and the GAM CPUE data."
+mnlen_cpue <- dfj %>%
+  group_by(year, month, lat5, lon5) |>
+  mutate(u = sum(freq) / mean(hooks)) |>
+  ungroup() |>
+  group_by(year, length) |>
+  mutate(
+    lf_u_nom = sum(u * prop),
+    lf_u_gam = sum(jap_cpue * prop)
+  ) |>
+  ungroup() |>
+  group_by(year) |>
+  mutate(
+    p_u_nom = lf_u_nom / sum(lf_u_nom),
+    p_u_gam = lf_u_gam / sum(lf_u_gam)
+  ) |>
+  summarise(
+    mean_len_u_nom = sum(length * p_u_nom),
+    mean_len_u_gam = sum(length * p_u_gam)
+  ) |>
+  pivot_longer(cols = 2:3, names_to = "type", values_to = "Length")
+mnlen_cpue <- dfj %>%
+  group_by(year, month, lat5, lon5) |>
+  mutate(u = sum(freq) / mean(hooks)) |>
+  ungroup() |>
+  group_by(year, length) |>
+  mutate(
+    # lf_catch = sum(freq),
+    lf_u_nom = sum(u * prop),
+    lf_u_gam = sum(jap_cpue * prop)
+  ) |>
+  ungroup() |>
+  group_by(year) |>
+  mutate(
+    # p_catch = lf_catch/sum(lf_catch),
+    p_u_nom = lf_u_nom / sum(lf_u_nom),
+    p_u_gam = lf_u_gam / sum(lf_u_gam)
+  ) |>
+  summarise(
+    # mean_len_catch = sum(length*p_catch),
+    mean_len_u_nom = sum(length * p_u_nom),
+    mean_len_u_gam = sum(length * p_u_gam)
+  ) |>
+  pivot_longer(cols = 2:3, names_to = "type", values_to = "Length")
+
+# sbt::length_freq |>
+  # filter(Year > 1968, Fishery == 1) 
+mnlen_LL1 <- sbt::length_freq |>
+  filter(Year > 1968, Fishery == 1) |>
+  pivot_longer(cols = 4:113, names_to = "len", values_to = "proportion") |>
+  filter(proportion > 0) |>
+  mutate(year = Year, len = as.numeric(len)) |>
+  group_by(year) |>
+  summarise(type = "Model", Length = sum(len * proportion))
+
+
+rbind(mnlen_cpue, mnlen_LL1) |>
+  ggplot(aes(x = year, y = Length, color = type)) +
+  geom_point() +
+  geom_line() +
+  ggthemes::theme_few()
+
+```
+
+
+```{r}
+#| echo: false
+mnlen_LL1 <- sbt::length_freq |>
+  filter(Year > 1968, Fishery == 1) |>
+  pivot_longer(cols = 4:113, names_to = "len", values_to = "proportion") |>
+  filter(proportion > 0) |>
+  mutate(year = Year, len = as.numeric(len)) |>
+  group_by(year) |>
+  summarise(type = "Model", Length = sum(len * proportion))
+```
+
+## Length Frequency by GAM CPUE
+
+To compute and optionally visualize full length frequency distributions weighted by GAM-predicted CPUE:
+
+```{r}
+#| echo: false
+lf_gam <- dfj %>%
+  group_by(year, month, lat5, lon5) %>%
+  mutate(cell_total = sum(jap_cpue)) %>%
+  ungroup() %>%
+  mutate(weighted_freq = prop * jap_cpue) %>%
+  mutate(length_bin = floor(length / 2) * 2) %>%  # bin: 40, 42, ..., 54, etc.
+  group_by(year, length_bin) %>%
+  summarise(freq_gam = sum(weighted_freq, na.rm = TRUE), .groups = "drop") %>%
+  group_by(year) %>%
+  mutate(prop_gam = freq_gam / sum(freq_gam)) %>%
+  ungroup()
+```
+
+Length-frequency proportions by year are computed as:
+
+$$
+\text{prop}^{\text{gam}}_{l,\text{year}} =
+\frac{\sum_i \text{CPUE}i \cdot \text{prop}_{il}}{\sum_l \sum_i \text{CPUE}i \cdot \text{prop}_{il}}
+$$
+
+📌 Notes
+
+  * floor(length / 2) * 2 groups lengths 40 and 41 into bin 40, 42 and 43 into 42, etc.  
+  
+	*	The prop_gam is the proportion at each 2-cm bin within each year:  
+	
+$$
+\text{prop}^{\text{gam}}_{b, \text{year}} = \frac{\text{freq}^{\text{gam}}_b}{\sum_b \text{freq}^{\text{gam}}_b}
+$$
+
+	•	Use length_bin for plotting or comparison to model outputs.
+	
+	
+## Format to bring into the assessment as a new set of length-composition data
+
+We write as matrix with rows are years and columns length bins.
+
+```{r write_matrix}
+#| fig.cap: "Length frequency matrix from GAM CPUE data."
+#| fig.width: 5
+#| fig.height: 8
+# str(lf_gam)
+lf_gam_wide <- lf_gam %>%
+  select(year, length_bin, prop_gam) %>%
+  pivot_wider(
+    names_from = length_bin,
+    values_from = prop_gam,
+    values_fill = 0
+  )
+# lf_gam_wide
+#sdf       <-  pivot_longer(df,names_to="age",values_to="sel",cols=2:(nages+1)) %>% filter(Year>=styr) %>% mutate(age=as.numeric(age)) #+ arrange(age,yr)
+#names(lf_gam)
+#write_csv(lf_gam_wide, "lf_gam_out.csv")
+#write_csv(sbt::length_freq, "lf_assessment.csv")
+flen=80;llen=190
+library(ggridges)
+p1  <- ggplot(lf_gam,aes(x=length_bin,y=as.factor(year),height = prop_gam)) + geom_density_ridges(stat = "identity",scale = 4, alpha = .7,
+  	     fill="salmon",color="black") + ggthemes::theme_few() +
+         ylab("Year") + xlab("Length (2-cm bin)") +
+         scale_x_continuous(limits=c(flen,llen),breaks=seq(flen,llen,6)) +
+         scale_y_discrete(limits=rev(levels(as.factor(lf_gam$year))))
+p1
+```
+
+```{r model}
+#| fig.cap: "Length frequency matrix from the assessment model input."
+#| fig.width: 5
+#| fig.height: 8
+lf_ass <- sbt::length_freq |>
+  filter(Year > 1968, Fishery == 1) |>
+  pivot_longer(cols = 4:113, names_to = "length_bin", values_to = "proportion") 
+p2  <- ggplot(lf_ass,aes(x=as.numeric(length_bin),y=as.factor(Year),height = proportion)) + geom_density_ridges(stat = "identity",scale = 4, alpha = .7,
+  	     fill="salmon",color="black") + ggthemes::theme_few() +
+         ylab("Year") + xlab("Length (2-cm bin)") +
+         scale_x_continuous(limits=c(flen,llen),breaks=seq(flen,llen,6)) +
+         scale_y_discrete(limits=rev(levels(as.factor(lf_ass$Year))))
+p2
+```
+
+# Summary
+
+This workflow merges catch-at-length observations with spatially resolved GAM model predictions to compute trends in average catch size. The final product includes both mean lengths and full length-frequency distributions weighted by GAM CPUE.
+
+---
