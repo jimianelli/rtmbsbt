@@ -264,8 +264,11 @@ $$
 ## Format to bring into the assessment as a new set of length-composition data
 
 We write as matrix with rows are years and columns length bins.
+For comparisons, we show the length frequency (in proportions) for the GAM CPUE 
+data (@fig-gam_lf) and the assessment model input data (@fig-mod_lf).
 
 ```{r write_matrix}
+#| label: fig-gam_lf
 #| fig.cap: "Length frequency matrix from GAM CPUE data."
 #| fig.width: 5
 #| fig.height: 8
@@ -293,6 +296,7 @@ p1
 ```
 
 ```{r model}
+#| label: fig-mod_lf
 #| fig.cap: "Length frequency matrix from the assessment model input."
 #| fig.width: 5
 #| fig.height: 8
