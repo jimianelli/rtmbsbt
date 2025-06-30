@@ -103,3 +103,4 @@ MCMC runs, aiding in diagnostics. This enhances the R package ADNUTS
 
 ![Group photo from the OMMP workshop](images/Workshop_photo.png)
 
+/Users/jim/Downloads/Report June_2025_Technical workshop.qmd

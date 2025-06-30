@@ -194,11 +194,6 @@ where:
 A regime shift option (carrying capacity) can be invoked using a different $B_0^r$ from 1978 onward. Both regimes share a common steepness value $h$.
 
 
-```{r fig-stock-recruit, fig.cap='Stochastic Beverton-Holt stock-recruitment curve'}
-#| label: fig-stock-recruit
-#plot(1:10, 1:10, type = 'l', main = 'Stock-Recruit Relationship')
-```
-
 ## Selectivity
 
 Selectivity is estimated per age and allowed to evolve over time.
@@ -526,9 +521,10 @@ the current default values as:   $\beta = 0$
 These parameters control non-linear effort adjustments and the age range used to standardize selectivity in $\tilde{N}_y$. 
 
 **Notes:**
-- Changing $\beta$ or $\gamma$ had little or no effect in conditioning analyses (see CCSBT-MP/0304/07).
-- $\omega$ is one of the tuning axes and is typically set to 1 or 0.75.
-- The alternate $(a_1, a_2)$ = (8, 12) avoids including ages 19–30, for which selectivity estimates are very low.
+
+  - Changing $\beta$ or $\gamma$ had little or no effect in conditioning analyses (see CCSBT-MP/0304/07).
+  - $\omega$ is one of the **tuning** axes and is typically set to 1 or 0.75.
+  - The alternate $(a_1, a_2)$ = (8, 12) avoids including ages 19–30, for which selectivity estimates are very low.
 
 ---
 
