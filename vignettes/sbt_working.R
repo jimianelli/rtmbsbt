@@ -190,3 +190,108 @@ decamod::pairs_rtmb(fit = mcmc, order = "slow", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "mismatch", pars = 1:5)
 decamod::pairs_rtmb(fit = mcmc, order = "fast", pars = 1:5)
 plot_uncertainties(fit = mcmc, log = TRUE, plot = TRUE)
+
+
+##--Jim's tests--------------
+##
+##
+
+
+case=1
+sel_phi <- matrix(0, nrow = 6, ncol = 2)
+sel_phi[,1] <- c(0.7, 0.7, 0.7, 0.7, 0.7, 0.5) # year
+sel_phi[,2] <- c(0.9, 0.9, 0.9, 0.9, 0.9, 0.5) # age
+sel_scale <- matrix(0, nrow = 6, ncol = 2)
+sel_scale[,1] <- c(0.8, 0.8, 0.8, 0.8, 1.2, 2) # year
+sel_scale[,2] <- c(0.8, 0.8, 0.8, 0.8, 1.2, 2) # year
+df <- list()
+df[[1]] <- scale_phi(case = case, sel_phi, sel_scale) 
+
+case=2
+sel_phi <- matrix(0, nrow = 6, ncol = 2)
+sel_scale <- matrix(0, nrow = 6, ncol = 2)
+sel_phi[,1] <- c(0.7, 0.7, 0.7, 0.7, 0.7, 0.5) # year
+sel_phi[,2] <- c(0.9, 0.9, 0.9, 0.9, 0.9, 0.5) # age
+sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.2, 1.5) # year
+sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.2, 1.5) # age   sel_scale[,2] <- c(0.8, 0.8, 0.8, 0.8, 0.5, 2) # age
+df[[case]] <- scale_phi(case = case, sel_phi, sel_scale) 
+
+case=3
+sel_phi <- matrix(0, nrow = 6, ncol = 2)
+sel_scale <- matrix(0, nrow = 6, ncol = 2)
+sel_phi[,1] <- c(0.5, 0.7, 0.5, 0.7, 0.7, 0.5) # year
+sel_phi[,2] <- c(0.5, 0.9, 0.5, 0.9, 0.9, 0.5) # age
+sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.2, 1.5) # year
+sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.2, 1.5) # age   sel_scale[,2] <- c(0.8, 0.8, 0.8, 0.8, 0.5, 2) # age
+df[[case]] <- scale_phi(case = case, sel_phi, sel_scale)      
+
+case=4 # Case 2 ll1, 3 for aus and LL3, try to get Indonesian better
+sel_phi <- matrix(0, nrow = 6, ncol = 2)
+sel_phi[,1] <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
+sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
+sel_scale <- matrix(0, nrow = 6, ncol = 2)
+sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.2, 1.5) # year
+sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.2, 1.5) # age   sel_scale[,2] <- c(0.8, 0.8, 0.8, 0.8, 0.5, 2) # age
+df[[case]] <- scale_phi(case = case, sel_phi, sel_scale)      
+
+case=5 # Case 2 ll1, 3 for aus and LL3, try to get Indonesian better
+sel_phi <- matrix(0, nrow = 6, ncol = 2)
+sel_scale <- matrix(0, nrow = 6, ncol = 2)
+sel_phi[,1] <- c(0.7, 0.7, 0.5, 0.7, 0.5, 0.5) # year
+sel_phi[,2] <- c(0.9, 0.9, 0.5, 0.9, 0.9, 0.5) # age
+sel_scale[,1] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # year
+sel_scale[,2] <- c(1, 0.8, 1.0, 0.8, 1.0, 1.5) # age   sel_scale[,2] <- c(0.8, 0.8, 0.8, 0.8, 0.5, 2) # age
+df[[case]] <- scale_phi(case = case, sel_phi, sel_scale)      
+
+bind_rows(df) |> ggplot(aes(x = fishery, y = RTMB_nll, fill = as.factor(case))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(ADMB_nll, 0)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Comparison of RTMB and ADMB NLL by Fishery and Case",
+       x = "Fishery", y = "Negative Log-Likelihood (NLL)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, size=.5, hjust = 1))
+names(bind_rows(df))
+bind_rows(df) |> select(ggplot(aes(x = fishery, y = RTMB_nll, fill = as.factor(case))) +
+
+sel_scale
+scale_phi <- function(case,sel_phi=sel_phi,sel_scale=sel_scale) {
+  parameters$par_log_sel_phi   <- log(sel_phi)
+  parameters$par_log_sel_scale <- log(sel_scale)
+  obj <- RTMB::MakeADFun(func = cmb(sbt_model, data), parameters = parameters, map = map)
+  unique(names(obj$par))
+  opt <- nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
+                lower = bnd$lower, upper = bnd$upper, control = control)
+  opt <- nlminb(start = opt$par, objective = obj$fn, gradient = obj$gr, hessian = obj$he,
+                lower = bnd$lower, upper = bnd$upper, control = control)
+  obj$par <- opt$par
+  
+  af_df <- data.frame(fishery = data$af_fishery, value = obj$report()$lp_af) %>%
+    group_by(fishery) %>%
+    summarise(RTMB_nll = sum(value), .groups = "drop") %>%
+    bind_cols(
+      case = case,
+      ADMB_nll = lr$lnlike[5:6],
+      RTMB_sel = obj$report()$lp_sel[5:6],
+      phi_yr = sel_phi[5:6, 1],
+      phi_age = sel_phi[5:6, 2],
+      scale_yr = sel_scale[5:6, 1],
+      scale_age = sel_scale[5:6, 2]
+    )
+  # Second block (lf), renamed to match
+  lf_df <- data.frame(fishery = data$lf_fishery, value = obj$report()$lp_lf) %>%
+    group_by(fishery) %>%
+    summarise(RTMB_nll = sum(value), .groups = "drop") %>%
+    bind_cols(
+      case = case,
+      ADMB_nll = lr$lnlike[1:4],
+      RTMB_sel = obj$report()$lp_sel[1:4],
+      phi_yr = sel_phi[1:4, 1],
+      phi_age = sel_phi[1:4, 2],
+      scale_yr = sel_scale[1:4, 1],
+      scale_age = sel_scale[1:4, 2]
+    )
+  # Combine
+  phi_scale_df <- bind_rows(af_df, lf_df)
+  phi_scale_df
+}
+
