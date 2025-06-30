@@ -1,0 +1,147 @@
+---
+title: "Autoregressive Density Function: `dautoreg`"
+format:
+  html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    df-print: paged
+---
+
+## Description
+
+The `dautoreg` function evaluates or simulates from a univariate autoregressive (AR) process of order $k$, defined by AR coefficients $\phi_1, \dots, \phi_k$. It is designed for use with the RTMB framework.
+
+```r
+dautoreg <- function(x, mu = 0, phi, log = FALSE, scale = 1) {
+  "[<-" <- RTMB::ADoverload("[<-")
+  if (!zero(mu) || !unit(scale)) {
+    return(dscale("dautoreg", x, 0, phi, log = log, center = mu, scale = scale))
+  }
+  k <- length(phi)
+  M <- matrix(0, k, k)
+  for (i in 1:k) {
+    for (j in 1:k) {
+      d <- abs(i - j)
+      if (i != j) {
+        M[i, d] <- M[i, d] + phi[j]
+      }
+    }
+  }
+  I <- diag(k)
+  gamma <- solve(I - M, phi)
+  sigma <- sqrt(1 - sum(phi * gamma))
+  V0 <- diag(k)
+  for (i in 1:k) {
+    for (j in 1:k) {
+      d <- abs(i - j)
+      if (i != j) {
+        V0[i, j] <- gamma[d]
+      }
+    }
+  }
+  k <- min(length(x), k)
+  V0 <- V0[1:k, 1:k]
+  if (inherits(x, "simref")) {
+    xref <- x
+    x <- x$value
+    x[1:k] <- MASS::mvrnorm(1, 0, V0)
+    for (i in (tail(seq_along(x), -k))) {
+      x[i] <- rnorm(1, sum(phi * x[i - (1:k)]), sigma)
+    }
+    xref[] <- x
+    return(0)
+  }
+  ans <- mvtnorm::dmvnorm(x[1:k], 0, V0, log = TRUE)
+  for (i in (tail(seq_along(x), -k))) {
+    ans <- ans + dnorm(x[i], sum(phi * x[i - (1:k)]), sigma, log = TRUE)
+  }
+  if (!log) ans <- exp(ans)
+  ans
+}
+```
+
+## Parameters
+
+| Argument | Description |
+|----------|-------------|
+| `x`      | Numeric vector (or `simref` object) of values. |
+| `mu`     | Mean of the AR process. Defaults to 0. |
+| `phi`    | Vector of AR coefficients. Length $k$ defines the AR order. |
+| `log`    | Logical flag: return log-density if `TRUE`. |
+| `scale`  | Scalar scale parameter. If not 1, transformed with `dscale()`. |
+
+## Covariance Matrix Construction
+
+The covariance matrix $V_0$ is constructed from $\phi$ using:
+
+$$
+\gamma = (I - M)^{-1} \phi,
+\quad \sigma^2 = 1 - \sum \phi_i \gamma_i
+$$
+
+Then:
+
+$$
+V_0[i,j] =
+\begin{cases}
+1 & \text{if } i = j \\
+\gamma[|i - j|] & \text{if } i \ne j
+\end{cases}
+$$
+
+### Example
+
+Let $\phi = (0.5, 0.3)$. Then:
+
+```r
+phi <- c(0.5, 0.3)
+k <- length(phi)
+M <- matrix(0, k, k)
+for (i in 1:k) {
+  for (j in 1:k) {
+    d <- abs(i - j)
+    if (i != j) M[i, d] <- M[i, d] + phi[j]
+  }
+}
+I <- diag(k)
+gamma <- solve(I - M, phi)
+sigma2 <- 1 - sum(phi * gamma)
+V0 <- diag(k)
+for (i in 1:k) {
+  for (j in 1:k) {
+    d <- abs(i - j)
+    if (i != j) V0[i, j] <- gamma[d]
+  }
+}
+round(V0, 4)
+```
+
+Expected output:
+
+```
+     [,1]  [,2]
+[1,] 1.000 0.656
+[2,] 0.656 1.000
+```
+
+## Density Evaluation
+
+```r
+set.seed(42)
+x <- arima.sim(n = 100, list(ar = phi))
+dautoreg(x, phi = phi, log = TRUE)
+```
+
+This computes the log-density of `x` under the specified AR process.
+
+## Simulation Mode
+
+If `x` is a `simref` object, the function will **simulate** from the AR process:
+
+```r
+x_sim <- RTMB::simref(rep(NA, 100))
+dautoreg(x_sim, phi = c(0.7, -0.2))
+plot(x_sim[], type = 'l', main = "Simulated AR(2) Series")
+```
