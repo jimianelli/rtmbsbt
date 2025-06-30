@@ -1,0 +1,1511 @@
+--- 
+title: "Southern Bluefin Tuna Operating Model Documentation" 
+author: "CCSBT OMMP" 
+date: 2025-06-27 
+format: 
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    theme: cosmo
+    code-fold: true          # enables collapsible code
+    code-tools: true         # optional: adds a show/hide button
+    # title-block-banner: true
+    # title-block-logo: images/ccsbt_logo.png
+    embed-resources: true
+  pdf: default 
+  docx: default 
+bibliography: references.bib 
+--- 
+
+
+# Conditioning Model
+
+## Model Structure
+
+The model represents the Southern Bluefin Tuna (SBT) population as a single, age-structured stock. It incorporates historical trends in growth and models recruitment stochastically using a Beverton-Holt function with log-normal autocorrelated residuals. Six fisheries are modeled across two fishing seasons.
+
+| Fishery            | Description                                                   | Pulse | Season |
+|--------------------|---------------------------------------------------------------|-------|--------|
+| LL1                | Japanese LL areas 4–9 and other longline catches              | 2     | Jul–Dec|
+| LL2                | Taiwanese albacore LL and gillnet                              | 2     | Jul–Dec|
+| LL3                | Japanese LL in Area 2                                          | 1     | Jan–Jun|
+| LL4-size           | Japanese spawning (Area 1)                                     | 1     | Jan–Jun|
+| Indonesian         | Indonesian spawning                                            | 1     | Jan–Jun|
+| Australian Surface | Surface fishery                                                | 1     | Jan–Jun|
+
+# Population Dynamics
+
+The population dynamics are defined as:
+
+$$
+N_{y+1, a+1} = N_{y, a} 
+\left( 1 - \sum_{f \in f^1} H_{f, y, a} \right)
+\left( 1 - \sum_{f \in f^2} H_{f, y, a} \right)
+e^{-M_a} \quad \text{for } 0 \le a \le A-2,\ y_{n_1} \le y \le y_{n_2}
+$$
+
+$$
+N_{y+1, A} = 
+N_{y, A-1}
+\left( 1 - \sum_{f \in f^1} H_{f, y, A-1} \right)
+\left( 1 - \sum_{f \in f^2} H_{f, y, A-1} \right)
+e^{-M_{A-1}} + 
+N_{y, A}
+\left( 1 - \sum_{f \in f^1} H_{f, y, A} \right)
+\left( 1 - \sum_{f \in f^2} H_{f, y, A} \right)
+e^{-M_A}
+$$
+
+$$
+N_{y+1, 0} = R_{y+1}
+$$
+
+$$
+N^*_{y, a} = N_{y, a} 
+\left( 1 - \sum_{f \in f^1} H_{f, y, a} \right)
+e^{-M_a / 2}
+$$
+
+$$
+H_{f, y, a} = s_{f, y, a} F_{f, y}
+$$
+
+The fishing mortality rate for each fishery is derived as follows:
+
+For fisheries in season 1 ($f \in f^1$):
+
+$$
+F_{f,y} = \frac{C_{f,y}}{\sum_a w_{f,y,a} s_{f,y,a} N_{y,a}}
+$$
+
+For fisheries in season 2 ($f \in f^2$):
+
+$$
+F_{f,y} = \frac{C_{f,y}}{\sum_a w_{f,y,a} s_{f,y,a} N^*_{y,a}}
+$$
+
+Where:
+
+- $N_{y,a}$: number of fish of age $a$ at the start of year $y$
+- $N^*_{y,a}$: number of fish of age $a$ at mid-year $y$
+- $M_a$: natural mortality rate at age $a$
+- $C_{f,y}$: catch (biomass) by fishery $f$ in year $y$
+- $F_{f,y}$: age-averaged fishing mortality for fishery $f$
+- $H_{f,y,a}$: fishing proportion for age $a$ in fishery $f$ and year $y$
+- $s_{f,y,a}$: standardized selectivity at age $a$ in fishery $f$
+- $w_{f,y,a}$: mean weight-at-age for age $a$ in year $y$ and fishery $f$
+- $R_y$: age-0 recruitment in year $y$
+- $f^1$: fisheries operating in season 1
+- $f^2$: fisheries operating in season 2
+- $A$: maximum age considered (plus group)
+- $y_{n_1}, y_{n_2}$: first and last years of the reconstruction period
+
+**Note**: The harvest rate $H_{f,y,a}$ is calculated as:
+
+$$
+H_{f,y,a} = s_{f,y,a} F_{f,y}
+$$
+
+and constrained so that:
+
+$$
+\max(H_{f,y,a}) \leq 0.9
+$$
+
+For the reference model, $A = 30$.
+
+
+## Stock-Recruitment
+
+The number of recruits at the start of year $y$ is given by:
+
+$$
+R_y = \frac{\alpha^r S_y}{\beta^r + S_y} \cdot \exp(\tau_y - 0.5 \sigma_R^2) \cdot 
+\left(1 - \exp\left( \frac{\ln(0.5) S_y}{\nu B_0^r} \right)\right)
+$$
+
+where:
+
+- $S_y$ is the spawning stock biomass in year $y$
+- $\alpha^r, \beta^r$ are Beverton-Holt parameters for regime $r$
+- $\nu$ is a depensation parameter ($\nu \to \infty$ implies no depensation)
+- $B_0^r$ is the equilibrium spawning biomass in the absence of fishing under regime $r$
+- $\tau_y$ is a lognormal recruitment residual:
+
+$$
+\tau_y \sim
+\begin{cases}
+\delta_y & \text{if no AC} \
+\delta_y & \text{if AC and } y < y_{AC} \
+\omega \tau_{y-1} + \delta_y & \text{if AC and } y \geq y_{AC}
+\end{cases}
+$$
+
+- $\delta_y$ are i.i.d. normal deviations: $\delta_y \sim \mathcal{N}(0, \sigma_R^2)$
+- $\omega$ is the empirical autocorrelation in $\tau_y$, estimated over 1966–$(y_{AC} - 4)$
+- $y_{AC}$ is the first year with autocorrelated recruitment deviations (must be $\geq 1996$)
+
+The spawning biomass $S_y$ is estimated as:
+
+$$
+S_y = \sum_{a=1}^A m_a \left(w^s_{y,a}\right)^\kappa N_{y,a}
+$$
+
+where:
+
+- $m_a$ = proportion mature at age $a$
+- $w^s_{y,a}$ = weight-at-age used for spawning biomass (from Indonesian fishery)
+- $\kappa$ = exponent in the nonlinear reproductive potential model
+
+To express the stock-recruitment relationship in more biologically meaningful terms, the Beverton-Holt parameters $\alpha^r$ and $\beta^r$ are reparameterized using the equilibrium spawning biomass in the absence of fishing ($B_0^r$) and the steepness parameter $h$:
+
+$$
+\alpha^r = \frac{4hR_0^r}{5h - 1}, \quad
+\beta^r = \frac{B_0^r (1 - h)}{5h - 1}
+$$
+
+where:
+
+- $h$ is the steepness (recruitment at 20% of unfished spawning biomass as a fraction of $R_0$)
+- $R_0^r$ is the unfished recruitment for regime $r$
+
+The corresponding spawning biomass $B_0^r$ is given by:
+
+$$
+B_0^r =
+\frac{
+\sum_{a=1}^{A-1} m_a (w^s_{y_{n1},a})^\kappa \exp\left(-\sum_{a'=a}^{A-1} M_{a'}\right) +
+m_A (w^s_{y_{n1},A})^\kappa \frac{\exp\left(-\sum_{a'=0}^{A-1} M_{a'}\right)}{1 - \exp(-M_A)}
+}{
+1
+}
+$$
+
+where:
+
+- $m_a$ = proportion mature at age $a$
+- $w^s_{y,a}$ = mean weight at age $a$ used for spawning (from Indonesian fishery)
+- $\kappa$ = exponent in the reproductive potential formula
+- $M_a$ = natural mortality at age $a$
+- $A$ = maximum age (plus-group)
+- $y_{n1}$ = first year of the stock reconstruction
+
+A regime shift option (carrying capacity) can be invoked using a different $B_0^r$ from 1978 onward. Both regimes share a common steepness value $h$.
+
+
+```{r fig-stock-recruit, fig.cap='Stochastic Beverton-Holt stock-recruitment curve'}
+#| label: fig-stock-recruit
+#plot(1:10, 1:10, type = 'l', main = 'Stock-Recruit Relationship')
+```
+
+## Selectivity
+
+Selectivity is estimated per age and allowed to evolve over time.
+
+### Initial Year Selectivity Parameterization
+
+For the first year in which there is catch data ($y = y_{c1}$), the unnormalized selectivity $s'_{f,y_{c1},a}$ for fishery $f$ and age $a$ is defined as:
+
+$$
+s'_{f,y_{c1},a} =
+\begin{cases}
+0 & \text{if } a < a^{\min}_f \
+\exp(\lambda_{f,a}) & \text{if } a^{\min}_f \leq a \leq a^{\max}_f \
+\exp(\lambda_{f,a^{\max}_f}) & \text{if } a > a^{\max}_f \text{ and } f \in z \
+0 & \text{if } a > a^{\max}_f \text{ and } f \notin z
+\end{cases}
+$$
+
+where:
+
+- $a^{\min}_f$, $a^{\max}_f$ are the minimum and maximum ages with estimated parameters for fishery $f$
+- $\lambda_{f,a}$ is the log-selectivity at age $a$
+- $z$ is the set of fisheries for which $s_{f,a}$ is constant for $a > a^{\max}_f$
+
+### Normalization
+
+Selectivity is normalized by dividing by the value at a reference age:
+
+The reference age $a^{\text{med}}_f$ is calculated as:
+
+$$
+a^{\text{med}}_f = \text{int}\left( \frac{a^{\min}_f + a^{\max}_f}{2} \right) + 1
+$$
+
+Then normalized selectivity:
+
+$$
+s_{f,y_{c1},a} = \frac{s'_{f,y_{c1},a}}{s'_{f,y_{c1},a^{\text{med}}_f}}
+$$
+
+A penalty is applied to force $\lambda_{f,a^{\text{med}}_f} = 0$ using a quadratic penalty.
+
+### Alternative Selectivity Parameterization
+
+When `jim_select = 1` is set in the TPL code, selectivities are normalized with respect to the **mean over the age range** $a^{\min}_f \leq a \leq a^{\max}_f$, and a **quadratic penalty** is applied to the log of the mean selectivity to enforce that the mean equals 1 in the first year.
+
+During minimization, if any age-specific harvest rate exceeds 0.90 (the "kludge" message), only the violating rate is reduced — unlike older versions which adjusted all harvest rates. This targeted approach is preferred but ~30% slower to run.
+
+### Time-Varying Updates (for $y > y_{c1}$)
+
+### Curvature Penalty for Age Smoothing
+
+A curvature penalty is applied to smooth the age-selectivity parameters:
+
+$$
+x_{f,y,a} =
+\begin{cases}
+\log(s_{f,y,a}) & \text{for } I38 = 0 \\
+(s_{f,y,a})^{I38} & \text{for } I38 > 0
+\end{cases}
+$$
+
+
+
+- $c^f$ is the set of years with selectivity changes for fishery $f$ (i.e. when `I40 ≠ 0`)
+- $\gamma_{f,y,a} \sim \mathcal{N}(0, \sigma^2_{Sf})$ controls the magnitude of change
+
+After each update, normalization is applied:
+
+$$
+s_{f,y,a} = \frac{s'_{f,y,a}}{s'_{f,y,a^{\text{med}}}} \quad \text{or} \quad
+s_{f,y,a} = \frac{s'_{f,y,a}}{\text{mean}(s'_{f,y,a^{\min}}, \dots, s'_{f,y,a^{\max}})}
+$$
+
+The error terms $\gamma_{f,y,a}$ are treated as free parameters with input variance $\sigma^2_{Sf}$ (parameter `I40`).
+
+---
+
+If the age effect of fishing is constant, this creates a separable model: fishing mortality = age × year. If not, variance terms allow **gradual evolution** of selectivity. A **curvature penalty** is applied to enforce smoothness in age:
+
+$$
+x_{f,y,a} =
+\begin{cases}
+\log(s_{f,y,a}) & \text{if } I38 = 0 \
+(s_{f,y,a})^{I38} & \text{if } I38 > 0
+\end{cases}
+$$
+
+
+### Selectivity Curvature Penalty
+
+A penalty term is added to the negative log-likelihood for each fishery to prevent irregular shifts between adjacent age classes. This can be based on either **second differences** (linear smoothing) or **third differences** (dome-shaped smoothing), depending on the control parameter `I39`.
+
+The penalty function is:
+
+$$
+g^f\left(x_{f,y,a}; \sigma^2_{bf}\right) =
+\begin{cases}
+\displaystyle
+\sum_{y \in (y_{c1}, c^f)} \sum_{a = a^{\min}_f}^{a^{\max}_f - 2}
+\frac{\left(x_{f,y,a+2} - 2x_{f,y,a+1} + x_{f,y,a}\right)^2}{2 \sigma^2_{bf}}
+& \text{for } I39 = 2 \\
+\displaystyle
+\sum_{y \in (y_{c1}, c^f)} \sum_{a = a^{\min}_f}^{a^{\max}_f - 3}
+\frac{\left(x_{f,y,a+3} - 3x_{f,y,a+2} + 3x_{f,y,a+1} - x_{f,y,a}\right)^2}{2 \sigma^2_{bf}}
+& \text{for } I39 = 3
+\end{cases}
+$$
+
+This penalty:
+
+- **Smooths selectivity curves** to prevent erratic shifts by age
+- **Encourages dome-shaped selectivity** for third differences
+- **Favors linear selectivity** for second differences
+
+## Growth
+
+Length-age relationships are assumed known, specified by a time-varying growth
+schedule estimated outside the model (CCSBT ESC16-1107/9).  The mean length at age 
+is input for each year *y* and season *t* while the standard deviation of length 
+at age is time invariant. Also, fixed length-weight relationships are assumed
+for each fishery.  The length frequency distributions for each age are calculated 
+assuming normal distributions.  
+
+## Natural Mortality
+
+Natural mortality $M_a$ is assumed to vary by age using four parameters: $m^1$, $m^4$, $m^{10}$, and $m^{30}$, which correspond to the instantaneous mortality at ages 1, 4, 10, and 30+, respectively.
+
+The mortality-at-age is computed as:
+
+$$
+M_a =
+\begin{cases}
+m^1 & \text{for } a = 0, 1 \\
+m^1 - (m^1 - m^{10}) \left( \frac{a - 1}{10 - 1} \right)^p & \text{for } 2 \le a < 9 \\
+m^{10} & \text{for } 10 \le a \le 25 \\
+M_{25} + \frac{m^{30} - M_{25}}{5}(a - 25) & \text{for } 25 < a < 30 \\
+m^{30} & \text{for } a \ge 30
+\end{cases}
+$$
+
+where the power $p$ is calculated to satisfy the constraint at age 4:
+
+$$
+p = \frac{
+\ln\left( \frac{m^1 - m^4}{m^1 - m^{10}} \right)
+}{
+\ln\left( \frac{4 - 1}{10 - 1} \right)
+}
+$$
+
+- $m^1$ and $m^{10}$ are fixed
+- $m^4$ and $m^{30}$ are estimated
+- $m^4$ is bounded between $m^1$ and a linear interpolation between $m^1$ and $m^{10}$
+
+Conditioning trials show:
+
+- $m^4$ and $m^{30}$: low uncertainty (estimated reliably)
+- $m^1$ and $m^{10}$: more uncertain → multiple values used in projections
+
+
+## Tagging Model
+
+The tag return data are modeled using a Brownie model to estimate fishing and natural mortality by leveraging data from fish tagged in consecutive years.
+
+### Model Assumptions
+
+- Tagging occurs at the start of the calendar year (Jan 1), which begins the first of two annual fishing seasons (Jan–Jun and Jul–Dec).
+- Pulse fisheries operate at the start of each season.
+- Newly tagged fish are not fully mixed in the first season after tagging → the harvest rate for tagged fish differs from that for untagged fish in that season.
+- Some tags are never returned → reporting rates ($\nu_{c,i}$) are estimated by age and year.
+- Tags may be shed over time → modeled using tagger-dependent retention rates.
+
+### Tag Shedding
+
+The probability of retaining at least one tag after $\tau$ years is:
+
+$$
+Q_g(\tau) = \xi_g e^{-\Omega_g \tau}
+$$
+
+- $\xi_g$ is the fraction of tags immediately retained (i.e., $1 - \xi_g$ immediately shed)
+- $\Omega_g$ is the continuous tag shedding rate
+
+### Tag Recapture Probability
+
+Let $p_{c,a,g,i}$ be the probability that a fish from cohort $c$, tagged at age $a$ by tagger group $g$, is recaptured at age $i$ with **at least one** tag returned:
+
+$$
+p_{c,a,g,i} =
+\begin{cases}
+0 & i < a \\
+\left(2 \xi_g S_{c,g,a}^{r'} - \xi_g S_{c,g,a}^{r''}\right) \nu_{c,i} & i = a \\
+\left(2 \xi_g S_{c,g,a}^{r'} S_{c,g,a}^{s''} - \xi_g S_{c,g,a}^{r''} S_{c,g,a}^{s''}\right) \nu_{c,i} & i = a + 1 \\
+\left(2 \xi_g S_{c,g,a}^{r'} \prod_{j=a+1}^{i-1} S_{c,g,j}^{s'} f_{c,g,i}^{r'} - \xi_g S_{c,g,a}^{r''} \prod_{j=a+1}^{i-1} S_{c,g,j}^{s''} f_{c,g,i}^{r''}\right) \nu_{c,i} & i > a + 1
+\end{cases}
+$$
+
+### Tagging Model Parameters
+
+#### Derived Selectivity and Survival Expressions
+
+The following intermediate quantities are used to calculate tagging retention and recapture dynamics:
+
+$$
+S'_{c,g,i} = (1 - h_{1,c,i})(1 - h_{2,c,i}) \exp(-M_i - \Omega_g)
+$$
+
+$$
+S''_{c,g,i} = (1 - h_{1,c,i})(1 - h_{2,c,i}) \exp(-M_i - 2\Omega_g)
+$$
+
+$$
+f'_{c,g,i} = h_{1,c,i} + (1 - h_{1,c,i}) \exp\left(-0.5(M_i + \Omega_g)\right) h_{2,c,i}
+$$
+
+$$
+f''_{c,g,i} = h_{1,c,i} + (1 - h_{1,c,i}) \exp\left(-0.5(M_i + 2\Omega_g)\right) h_{2,c,i}
+$$
+
+$$
+S^{r'}_{c,g,i} = (1 - h^*_{c,i})(1 - h_{2,c,i}) \exp(-M_i - \Omega_g)
+$$
+
+$$
+S^{r''}_{c,g,i} = (1 - h^*_{c,i})(1 - h_{2,c,i}) \exp(-M_i - 2\Omega_g)
+$$
+
+$$
+f^{r'}_{c,g,i} = h^*_{c,i} + (1 - h^*_{c,i}) \exp\left(-0.5(M_i + \Omega_g)\right) h_{2,c,i}
+$$
+
+$$
+f^{r''}_{c,g,i} = h^*_{c,i} + (1 - h^*_{c,i}) \exp\left(-0.5(M_i + 2\Omega_g)\right) h_{2,c,i}
+$$
+
+#### Definitions
+| Symbol           | Description                                                       |
+|------------------|-------------------------------------------------------------------|
+| $M_i$            | Natural mortality at age $i$                                      |
+| $h_{1,c,i}$      | Proportion of age-$i$ fish from cohort $c$ harvested in season 1  |
+| $h_{2,c,i}$      | Proportion of age-$i$ fish from cohort $c$ harvested in season 2  |
+| $h^*_{c,i}$      | Harvest rate for tagged fish in the season following release      |
+| $\nu_{c,i}$      | Reporting rate for fish from cohort $c$ at age $i$                |
+| $\xi_g$          | Immediate tag retention fraction for tagger group $g$             |
+| $\Omega_g$       | Continuous shedding rate for tagger group $g$                     |
+
+#### OM Parameterization
+
+Season-specific harvest proportions:
+
+$$
+h_{1,c,i} = \sum_{f \in f^1} H_{f,c+a,i}
+\quad\quad
+h_{2,c,i} = \sum_{f \in f^2} H_{f,c+a,i}
+$$
+
+A sensitivity run assumes incomplete mixing of tagged fish near the Great Australian Bight (GAB) by increasing $h_{1,c,i}$ by a constant. This reflects the possibility that such tagged fish experience higher fishing mortality than the population average.
+
+
+## Catch Underreporting
+
+The SBT conditioning model contains a single option for underreporting of historic catches.  When this option is selected (I42) the values input for the catches in each fishery and year are increased.   For years up to and including 1990 the catches are increased by 5%.  For 1991 and onward the input catches are increased by 15%. NB: this is an old option, not to be confounded with the new catch scenarios.
+
+
+## Predicted Quantities
+
+### Catch-at-age and Catch-at-length
+
+Observations of either catch-at-age or catch-at-length are available for each fishery, and are fitted in the model.
+
+The predicted catch-at-age $a$ in fishery $f$ and year $y$ is:
+
+$$
+\hat{C}_{f,y,a} =
+\begin{cases}
+s_{f,y,a} F_{f,y} N_{y,a} & \text{for } f \in f^1 \\
+s_{f,y,a} F_{f,y} N^*_{y,a} & \text{for } f \in f^2
+\end{cases}
+$$
+
+For fisheries with length-based data, the predicted catch-at-length $l$ in fishery $f$ and year $y$ is:
+
+$$
+\hat{L}_{f,y,l} = \sum_a p'_{y,a,l} \hat{C}_{f,y,a}
+\quad \text{for } f \in f^1, t = 1 \quad \text{and for } f \in f^2, t = 2
+$$
+
+where $p'_{y,a,l}$ is the proportion of fish of age $a$ that are length $l$ in season $t$,
+assuming normal distributions for length-at-age with known means and variances.
+
+---
+
+### CPUE
+
+Catch per unit effort (CPUE) is fitted as an aggregate (non-age-specific) index for the LL1 fishery.
+
+The predicted CPUE in year $y$ is:
+
+$$
+\text{CPUE}_y = q_y \tilde{N}_y^\sigma
+\left[ 1 + \beta \left( \frac{E_y - E_{2000}}{E_{2000}} \right) + \gamma \left( \frac{E_y - E_{2000}}{E_{2000}} \right)^2 \right]
+$$
+
+with:
+
+$$
+\tilde{N}_y = \sum_a \left(
+\frac{s_{\text{LL1},y,a}}{\text{mean}(s_{\text{LL1},y,a_1}, \dots, s_{\text{LL1},y,a_2})}
+\right)^\psi N_{y,a}
+$$
+
+and effort in year $y$ calculated as:
+
+$$
+E_y = \frac{C_{\text{LL1},y}}{\text{CPUE}_y}
+$$
+
+### CPUE Parameter Defaults and Notes
+
+The CPUE model includes several user-specified control parameters with 
+the current default values as:   $\beta = 0$
+  $\gamma = 0$,  $\omega = 1$,  $\psi = 1$,  and
+  $(a_1, a_2) = (4, 18)$ or $(8, 12)$. 
+These parameters control non-linear effort adjustments and the age range used to standardize selectivity in $\tilde{N}_y$. 
+
+**Notes:**
+- Changing $\beta$ or $\gamma$ had little or no effect in conditioning analyses (see CCSBT-MP/0304/07).
+- $\omega$ is one of the tuning axes and is typically set to 1 or 0.75.
+- The alternate $(a_1, a_2)$ = (8, 12) avoids including ages 19–30, for which selectivity estimates are very low.
+
+---
+
+### Estimation and Trend in $q$
+
+- The only parameter estimated via minimization is $\log(q_y)$ for the **first year** of the CPUE series.
+- A **fixed 0.5% annual increase** in $q$ is assumed in subsequent years.
+
+> A test assuming a linear 1% annual increase in $q$ over the full time series was dropped due to lack of improvement. The retained value of 0.5% per year (i.e., halfway between the “Q0” and “Q1” scenarios) is used in both the conditioning and the projections of the core model set.
+
+
+## Tag Returns
+
+Let $N_{c,a,g}$ denote the number of fish from cohort $c$ tagged at age $a$ by taggers in group $g$.  
+We refer to this set of tag releases as set $(c, a, g)$.
+
+Let $R_{c,a,g,i}$ be the observed number of fish from release set $(c, a, g)$ that were recaptured at age $i$ and had at least one of their tags returned (we refer to this as the number of tag returns).
+
+Then, the predicted number of tag returns is given by:
+
+$$
+\hat{R}_{c,a,g,i} = N_{c,a,g} \, p_{c,a,g,i}
+$$
+
+where $p_{c,a,g,i}$ is the probability that a fish tagged as $(c, a, g)$ is recaptured at age $i$ and has at least one tag returned.
+
+
+## Aerial Survey
+
+The aerial survey data are treated as a **relative index of biomass** for age classes 2 to 4. The predicted index $\hat{I}_i$ is calculated as:
+
+$$
+\hat{I}_i = q_{\text{aerial}} \sum_{a=2}^{4} s_a \, w_{y_i,a} \, N_{y_i,a}
+$$
+
+Where:
+- $s_a$ = selectivity-at-age
+- $w_{y_i,a}$ = weight-at-age in season 1 for year $y_i$
+- $N_{y_i,a}$ = abundance at age $a$ in year $y_i$
+
+An attempt to estimate $s_a$ directly produced unrealistic results. Instead, three **fixed selectivity scenarios** are available in the control file:
+
+| Option | $s_2$ | $s_3$ | $s_4$ |
+|--------|------:|------:|------:|
+| 1      | 1     | 1     | 1     |
+| 2      | 0.5   | 1     | 1     |
+| 3      | 0.33  | 1     | 0.33  |
+
+---
+
+## Trolling Survey
+
+The trolling survey is treated as a **relative index of abundance** for **age 1** fish.
+
+# Objective Function
+
+### Likelihood Components for Data Fits
+
+The model is fitted to the following data sources:
+
+- CPUE index series
+- Fishery catch-at-age
+- Catch-at-length
+- Tag return data
+
+All total catch estimates for each fishery are assumed to be without error. The negative of the log-likelihood ($- \ln L$) is computed for each data component. Constant terms are ignored.
+
+---
+
+### CPUE Data
+
+CPUE is assumed to be log-normally distributed about its expected value with variance $\sigma_I^2$. The likelihood is:
+
+$$
+- \ln L = n_I \ln(\sigma_I) + \sum_{y=y_1}^{y_2} \frac{ \left( \ln(I_y) - \ln(\hat{I}_y) \right)^2 }{2 \sigma_I^2}
+$$
+
+Where:
+- $y_1$ and $y_2$ = first and last years with CPUE data
+- $n_I = y_2 - y_1 + 1$ = number of CPUE observations
+- $\sigma_I^2$ = CPUE variance, estimated with a minimum of $(0.1)^2$
+
+---
+
+### Catch-at-age and Catch-at-length
+
+For both catch-at-age and catch-at-length, a multinomial likelihood is used:
+
+$$
+- \ln L = n_y^f \sum_k p_{fyk} \ln\left( \frac{p_{fyk}}{\hat{p}_{fyk}} \right)
+$$
+
+Where:
+- $k = a$ for age-based data
+- $k = l$ for length-based data
+- $n_y^f$ = effective sample size for fishery $f$ in year $y$
+
+Observed and predicted proportions:
+
+**For age-based data:**
+$$
+p_{fya} = \frac{O_{fya}}{\sum_a O_{fya}}, \quad
+\hat{p}_{fya} = \frac{\hat{C}_{fya}}{\sum_a \hat{C}_{fya}}
+$$
+
+**For length-based data:**
+$$
+p_{fyl} = \frac{O_{fyl}}{\sum_l O_{fyl}}, \quad
+\hat{p}_{fyl} = \frac{\hat{L}_{fyl}}{\sum_l \hat{L}_{fyl}}
+$$
+
+### Tag Return Likelihood
+
+If the assumptions of a Brownie tagging model are met (e.g., complete mixing, independence between tagged fish), then the number of tags returned at ages $a$ through $i$, plus the number **not** returned by age $i$, from release set $(c, a, g)$ follow a multinomial distribution:
+
+$$
+\left\{
+R_{c,a,g,a}, \ldots, R_{c,a,g,i}, R_{c,a,g,\cdot}
+\right\}
+\sim
+\text{Multinomial} \left( N_{c,a,g}, \left\{ p_{c,a,g,a}, \ldots, p_{c,a,g,i}, 1 - \sum_{j=a}^i p_{c,a,g,j} \right\} \right)
+$$
+
+where:
+- $R_{c,a,g,\cdot} = \sum_{j=a}^i R_{c,a,g,j}$
+- $N_{c,a,g}$ = number of fish released in set $(c, a, g)$
+- $p_{c,a,g,j}$ = probability of return at age $j$
+
+---
+
+### Overdispersion and Dirichlet-Multinomial
+
+In practice, tag return data are typically **over-dispersed** relative to a multinomial distribution (i.e., show more variance). 
+
+To account for this, a **Dirichlet-multinomial distribution** is used instead. It is parameterized so that the variance is scaled by a factor $\varphi$ compared to the multinomial case.
+
+> For details, refer to Polacheck et al. (2006). *Can. J. Fish. Aquat. Sci.* **63**: 534–548.
+
+The likelihood of the tag returns from all release sets is computed as the **product of Dirichlet-multinomial likelihoods**.
+
+### Dirichlet-Multinomial Likelihood Expression
+
+The likelihood for tag returns under the Dirichlet-multinomial model is:
+
+$$
+L_R = \prod_{c} \prod_{g} \left\{ 
+K_{c,g} \prod_{a} 
+\left( 
+\frac{
+\Gamma(\omega_{c,a,g}) 
+\Gamma(R'_{c,a,g,\cdot} + \omega_{c,a,g} p'_{c,a,g,\cdot}) 
+}{
+\Gamma(N_{c,a,g} + \omega_{c,a,g}) 
+\Gamma(\omega_{c,a,g} p'_{c,a,g,\cdot})
+}
+\prod_{i=a}^I 
+\frac{
+\Gamma(R_{c,a,g,i} + \omega_{c,a,g} p_{c,a,g,i}) 
+}{
+\Gamma(\omega_{c,a,g} p_{c,a,g,i})
+}
+\right)
+\right\}
+$$
+
+where:
+
+- $\omega_{c,a,g} = (N_{c,a,g} - \varphi)/(\varphi - 1)$
+- $R'_{c,a,g,\cdot} = N_{c,a,g} - R_{c,a,g,\cdot}$
+- $p'_{c,a,g,\cdot} = 1 - \sum_{i=a}^{I} p_{c,a,g,i}$
+- $K_{c,g} = \prod_a \frac{N_{c,a,g}!}{\prod_{i=a}^{I} R_{c,a,g,i}!(N_{c,a,g} - R_{c,a,g,\cdot})!}$
+
+*Note*: $K_{c,g}$ is a constant and can be omitted in the maximization.
+
+---
+
+### Negative Log-Likelihood Form
+
+Leaving out constants, the negative log-likelihood becomes:
+
+$$
+\ln L_R = 
+\sum_{c,g,a} \sum_{i=a}^I 
+\left( 
+\ln \Gamma(R_{c,a,g,i} + \omega_{c,a,g} p_{c,a,g,i}) - \ln \Gamma(\omega_{c,a,g} p_{c,a,g,i}) 
+\right) + 
+\sum_{c,g,a} 
+\left( 
+\ln \Gamma(\omega_{c,a,g}) - \ln \Gamma(N_{c,a,g} + \omega_{c,a,g}) + \ln \Gamma(R'_{c,a,g,\cdot} + \omega_{c,a,g} p'_{c,a,g,\cdot}) - \ln \Gamma(\omega_{c,a,g} p'_{c,a,g,\cdot})
+\right)
+$$
+
+The final expression for the tagging model's log-likelihood is:
+
+$$
+-\ln L_{\text{tag}} = -\ln L_R
+$$
+
+Simulations showed that the overdispersion parameter $\varphi$ cannot be estimated reliably within the likelihood. Instead, it is estimated from the residuals of the multinomial model, as described in the *Standardized Residuals* section.
+
+### Standardized Residuals
+
+Under the assumption of multinomial tag return data, the number of tag returns at age $i$ for release set $(c, a, g)$ is approximately normally distributed:
+
+$$
+R_{c,a,g,i} \sim \text{Normal} \left(
+N_{c,a,g} p_{c,a,g,i}, \,
+N_{c,a,g} p_{c,a,g,i} (1 - p_{c,a,g,i})
+\right)
+$$
+
+The corresponding standardized residual is:
+
+$$
+\frac{R_{c,a,g,i} - N_{c,a,g} p_{c,a,g,i}}{
+\sqrt{N_{c,a,g} p_{c,a,g,i} (1 - p_{c,a,g,i})}
+}
+$$
+
+If the multinomial assumption is valid, the variance of these residuals should be close to 1.  
+If the variance is actually $x$, then $\hat{\varphi} = x$ is a reasonable estimate of the over-dispersion factor.
+
+For the Dirichlet-multinomial model, standardized residuals are:
+
+$$
+\frac{R_{c,a,g,i} - N_{c,a,g} p_{c,a,g,i}}{
+\sqrt{\hat{\varphi} N_{c,a,g} p_{c,a,g,i} (1 - p_{c,a,g,i})}
+}
+$$
+
+An estimate of $\varphi$ was calculated using residuals from all grid cells under the multinomial assumption.  
+This ranged from 2.2 to 2.9, with a **mean of 2.35**.
+
+
+## Aerial Survey Likelihood
+
+A log-normal likelihood with autocorrelated error and added process error is used:
+
+$$
+- \ln L_{\text{aerial}} = 0.5 \ln |\Sigma| + 0.5 \, \text{res}^T \Sigma^{-1} \text{res}
+$$
+
+Where:
+
+- $\text{res} = \ln(I) - \ln(\hat{I})$ is the vector of residuals
+- The proportionality constant $\hat{q}_{\text{aerial}}$ is estimated by:
+
+$$
+\ln \hat{q}_{\text{aerial}} = \frac{1^T \Sigma^{-1} \text{res}}{1^T \Sigma^{-1} 1}
+$$
+
+- $\Sigma = S + \tau^2_{\text{aerial}} I$ is the variance-covariance matrix of logged observations
+  - $S$ is the empirical covariance matrix for logged survey indices
+  - $\tau^2_{\text{aerial}}$ represents added process error
+
+> When $\tau^2_{\text{aerial}}$ was estimated as a free parameter, it often had large values (SD ~ 0.50–0.60), and model-based autocorrelation estimates were very low.
+
+To reduce bias from conflicts with CPUE, and to **give more weight to the aerial survey**, the 2010 Technical Meeting decided to fix:
+
+$$
+\tau_{\text{aerial}} = 0.18
+$$
+
+This results in a **total SD in log space of approximately 0.30** when combined with sampling error.
+
+---
+
+## Trolling Survey Likelihood
+
+For the trolling survey (used for 1996 onward in sensitivity tests), a **normal likelihood** is used:
+
+$$
+\sigma^2_{\text{troll}} \text{ is assumed constant and estimated externally}
+$$
+
+
+## Close-kin Data
+
+The close-kin data are now an agreed dataset for use within the CCSBT Operating Model (OM). While the full dataset contains many details, for modeling purposes the simplified structure is as follows:
+
+- **Juveniles**: There are individuals $i \in \Theta$ with a year of capture $y_i$, length-at-capture $l_i$, and either:
+  - A distribution of ages conditional on length, $p(a_i \mid l_i)$ (via a growth relationship), or
+  - Direct age $a_i$ (in the case of a known POP).
+  
+  The cohort year of birth is calculated as $c_i = y_i - a_i$.
+
+- **Adults**: There are individuals $j \in \Xi$ with a year of capture $y_j$, length-at-capture $l_j$, and either:
+  - A distribution $p(a_j \mid l_j)$, or
+  - Direct age $a_j$ (as in a POP match).
+
+---
+
+### Defining the Parental Probability
+
+The genetic data allow us to determine whether juvenile $i$ and adult $j$ form a **Parent-Offspring Pair (POP)** with high certainty. In a simple cartoon version, if there are $N$ adults, the probability that any one is the parent of a juvenile is $2/N$ (either a mother or a father).
+
+However, in a more realistic model with multiple cohorts and age structure, the following two factors must be considered:
+
+1. **Relative reproductive output** varies with age (e.g., maturity, batch fecundity, spawning history).
+2. **Relative abundance** decreases with age due to mortality and recruitment dynamics.
+
+To compute the probability that adult $j$ is the parent of juvenile $i$, we balance these effects. Let:
+
+  $\quad c_i = y_i - a_i$: birth year of juvenile $i$
+  
+  $\quad a_j - a_i$: age of adult $j$ in the birth year of juvenile $i$
+  
+  $\quad \varphi_{a_j - a_i}$: reproductive output of the adult at that age
+  
+
+Then the **parental probability** $\pi_{ij}$ is:
+
+$$
+\pi_{ij} = \frac{2 \varphi_{a_j - a_i}}{
+\sum_a N_{y_i - a, a} \varphi_a
+}
+$$
+
+where $N_{y,a}$ is the abundance of fish of age $a$ in year $y$, and $\sum_a N_{c_i,a} \varphi_a$ is the total reproductive output in the birth year of juvenile $i$.
+
+## Close-kin Likelihood
+
+At the individual level, the likelihood of observing the Parent-Offspring Pairs (POPs), denoted $\Psi$, is a product of independent Bernoulli distributions:
+
+$$
+L(\Psi \mid \circ) = \prod_{i \in \Theta} \prod_{j \in \Xi} \pi_{ij}^{k_{ij}} (1 - \pi_{ij})^{1 - k_{ij}}
+$$
+
+where $k_{ij} = 1$ if the $\{i, j\}$ pair is a POP and 0 otherwise.
+
+Given that the full comparison set includes millions of $\{i, j\}$ combinations, this base-level likelihood is computationally infeasible. To simplify:
+
+- Group comparisons by:
+  1. Adult capture age $a$
+  2. Adult capture year $y$
+  3. Juvenile cohort year $c$
+
+Let:
+
+  $\quad \Omega_{c,y,a}$ be the number of comparisons in group $(c, y, a)$
+  
+  $\quad \Psi_{c,y,a}$ be the number of POPs observed in that group
+  
+
+Then the grouped likelihood becomes a **binomial** likelihood:
+
+$$
+L(\Psi_{c,y,a} \mid \cdot) \propto \prod_{c} \prod_{y} \prod_{a}
+\pi_{c,y,a}^{\Psi_{c,y,a}} (1 - \pi_{c,y,a})^{\Omega_{c,y,a} - \Psi_{c,y,a}}
+$$
+
+---
+
+#### Standardised Residuals
+
+As in catch-at-age and tagging models, residuals help evaluate model fit.
+
+Under the binomial assumption, the standardised residual for close-kin group $(c, y, a)$ is:
+
+$$
+\hat{\varepsilon}_{c,y,a} =
+\frac{
+\Psi_{c,y,a} - \Omega_{c,y,a} \pi_{c,y,a}
+}{
+\sqrt{ \Omega_{c,y,a} \pi_{c,y,a} (1 - \pi_{c,y,a}) }
+}
+$$
+
+If the binomial assumption holds, $\hat{\varepsilon}_{c,y,a}$ should follow a standard normal distribution.
+
+#### Aggregated Residuals: Higher-Level Approximation
+
+A key challenge with close-kin data is deciding the appropriate level to evaluate residuals. At the base level, individual parental probabilities $\pi_{ij}$ are often extremely low, with many comparisons and very few POP detections (often only one or two). This structure is uncommon in ecological models, making standard residual analysis (e.g., expecting variance ≈ 1) potentially misleading.
+
+To address this, one **more nuanced approach** is to **aggregate** residuals to a higher level — such as cohort $c$ and adult capture year $y$ — by summing across adult ages.
+
+Using the **normal approximation to the binomial**, the expected number of POPs at this aggregated level is:
+
+$$
+\hat{\mu}_{c,y} = \sum_a \Omega_{c,y,a} \pi_{c,y,a}
+$$
+
+with corresponding variance:
+
+$$
+\hat{\sigma}^2_{c,y} = \sum_a \Omega_{c,y,a} \pi_{c,y,a} (1 - \pi_{c,y,a})
+$$
+
+This allows a higher-level standardized residual:
+
+$$
+\hat{\varepsilon}_{c,y} =
+\frac{
+\Psi_{c,y} - \hat{\mu}_{c,y}
+}{
+\sqrt{ \hat{\sigma}^2_{c,y} }
+}
+$$
+
+---
+
+While this normal approximation is useful for **visual diagnostics**, it is not ideal with **very small probabilities or uneven sample sizes**. In such cases, it is advisable to compute the exact probability from the **sum of binomial variables**, especially if assessing how well the OM explains the close-kin data.
+
+## Likelihood Components for Priors
+
+#### Stock-Recruitment Relationship
+
+The stock-recruitment relationship requires prior assumptions about:
+
+- The steepness parameter $h$
+- The magnitude of the change in carrying capacity
+- The magnitude of the recruitment residuals
+
+#### Steepness Prior
+
+The steepness parameter $h$ can be:
+- **Fixed** (if `I9 < 1`), or
+- **Estimated** (if `I9 \ge 1`), in which case $h \sim \mathcal{N}(\tilde{h}, 0.1^2)$
+
+The user may specify a tighter area of support via `I10` and `I11`. The prior log-likelihood is:
+
+$$
+- \ln L_h = \frac{(h - \tilde{h})^2}{2 (0.1)^2}, \quad \text{where } \tilde{h} = 0.5 \cdot (\text{I10} + \text{I11})
+$$
+
+---
+
+#### Recruitment Residuals
+
+Recruitment residuals $ \tau_y \sim \mathcal{N}(0, \sigma_R^2)$ are modeled with a normal prior in **log space**.
+
+The variance $\sigma_R^2$ can be:
+- **Fixed** (if `I12 < 1`, $\sigma_R = \text{I12}`), or
+- **Estimated** (if `I12 \ge 1`), with lower bound $\sigma_R \ge 0.4$
+
+The negative log-likelihood for the residual variance is:
+
+$$
+- \ln L_{\sigma_R} =
+\frac{(y_2 - y_1 + 1) \ln(\sigma_R)}{2}
++ \frac{ \sum_{y=y_1}^{y_2} \tau_y^2 }{2 \sigma_R^2 }
+$$
+
+---
+
+#### Autocorrelation of Deviates
+
+Autocorrelation is **not applied** except for the last 3 years (e.g., 2007–2009 when the last data year is 2008). From 2007 onward, empirical autocorrelation $\rho$ (estimated from 1965–2003) is applied to project recruitment residuals:
+
+Let $\hat{\tau}_y$ be the MPD estimate of the lognormal recruitment deviate in year $y$:
+
+$$
+\hat{\tau}_{2006} = \text{estimated from model fit}
+$$
+
+$$
+\hat{\tau}_{2007} = \rho \hat{\tau}_{2006}, \quad
+\hat{\tau}_{2008} = \rho^2 \hat{\tau}_{2006}, \quad
+\hat{\tau}_{2009} = \rho^3 \hat{\tau}_{2006}
+$$
+
+where $\rho$ is the empirical autocorrelation.
+
+---
+
+#### Carrying Capacity
+
+An **uninformative prior** (i.e., uniform) is assumed for the change in carrying capacity. Its contribution to the objective function is constant.
+
+
+#### Selectivity
+
+The prior for selectivity shape assumes that each fishery's age-specific selectivity follows a dome-shaped or linear pattern. The negative log-likelihood for the shape prior is:
+
+$$
+\sum_f g^f\left(x_{f,y,a}; \sigma^2_{b^f}\right)
+$$
+
+where:
+
+- $x_{f,y,a}$ = selectivity curvature term
+- $\sigma^2_{b^f}$ = prior variance parameter for fishery $f$, specified by `I37`
+- This variance reflects how strongly the selectivity is expected to follow the prior shape (e.g., dome or linear)
+
+---
+
+For fisheries where selectivity is allowed to evolve over time, the change is penalized using:
+
+$$
+\sum_f \sum_{y \in c^f} \sum_a \frac{(\gamma_{f,y,a})^2}{2 \sigma^2_{S^f_y}}
+$$
+
+where:
+
+- $c^f$ = set of years with time-varying selectivity for fishery $f$
+- $\gamma_{f,y,a}$ = change in selectivity parameter
+- $\sigma^2_{S^f_y}$ = variance of time-varying changes, specified by `I40`
+
+---
+
+#### Natural Mortality
+
+When natural mortality at age 1 ($m^1$) and/or age 10 ($m^{10}$) are estimated, the following **normal priors** are used:
+
+$$
+- \ln L_{m^1} = 0.5 \cdot \frac{(m^1 - 0.4)^2}{0.04^2}, \quad
+- \ln L_{m^{10}} = 0.5 \cdot \frac{(m^{10} - 0.10)^2}{0.06^2}
+$$
+
+These priors reflect uncertainty around fixed reference values of 0.4 (for $m^1$) and 0.10 (for $m^{10}$), assuming standard deviations of 0.04 and 0.06 respectively.
+
+Table 1. Fixed Quantities Determined Through Model Inputs
+
+| Quantity                     | Description                                                                                           | Control file code      |
+|-----------------------------|-------------------------------------------------------------------------------------------------------|------------------------|
+| $y_{n1}, y_{n2}$            | First and last years for reconstruction                                                               | I1, I2                 |
+| $y_{c1}$                    | First year for catch data                                                                             | I3                     |
+| $y_{I1}, y_{I2}$            | First and last years for CPUE index data                                                              | I4, I5                 |
+| $y_{AC}$                    | Year that initiates serial correlation in stock-recruitment residuals                                 | I13                    |
+| $A$                         | Last age class in model                                                                               | I6                     |
+|                             | Number of fisheries                                                                                   | I7                     |
+| $a_f^{\min}, a_f^{\max}$    | Min and max age class for which selectivity parameters are estimated for fishery $f$                 | I34, I35               |
+| $f^1, f^2$                  | Set of fisheries in season 1 and season 2                                                             | I33                    |
+| $c^f$                       | Set of years in which selectivity changes for fishery $f$                                             | I40                    |
+| $z$                         | Set of fisheries for which selectivity at ages $> a_f^{\max}$ equals that at $a_f^{\max}$             | I36                    |
+| $\beta, \gamma, \omega, \psi, q_y, a_1, a_2$ | Parameters determining the relationship between CPUE and stock abundance               | I16–I22                |
+| $\nu$                       | Stock-recruitment depensation parameter                                                               | I23                    |
+| $\kappa$                    | Non-linear body weight–reproductive potential parameter                                               | I24a                   |
+| $h$                         | Stock-recruitment steepness (can be estimated if I9 ≥ 1)                                               | I9; $h = 0.5 \cdot (\text{I10} + \text{I11})$ |
+| $M_a$                       | Natural mortality (can also be estimated)                                                             | I8a                    |
+| $m_a$                       | Fraction mature at age                                                                                | —                      |
+| $\sigma^2_R$               | Variance of stock-recruitment residuals (can be estimated)                                            | I12 < 1                |
+| $\sigma^2_{b^f}$           | Variance for shape of selectivity function for fishery $f$                                            | I37                    |
+| $\sigma^2_{S^f_y}$         | Variance of time-varying selectivity in year $y$ for fishery $f$                                      | I40                    |
+| $n^f_y$                    | Multinomial sample size for length/age sample for fishery $f$ in year $y$                             | I41                    |
+| $\varphi$                   | Over-dispersion factor for Dirichlet-multinomial tagging model                                        | —                      |
+
+
+
+
+Table 2. Quantities “Hardwired” in Code  
+*(You will need to change the code to modify these values)*
+
+| Quantity         | Description                                                                                                                               |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| $b_a$            | Proportion of fish mature at age $a$                                                                                                      |
+| $w_{fya}$        | Mean weight-at-age $a$ in fishery $f$ and year $y$ — based on input lengths-at-age; weight-length relationship is hardcoded per fishery  |
+| $w^s_{ya}$       | Mean weight of spawning fish at age $a$ in year $y$, set equal to weight-at-age from fishery 1 (LL1)                                      |
+| $\omega$         | Empirical autocorrelation of stock-recruitment residuals, based on years 1966 to data year minus 5; set via control parameter `rec_AC_sw`|
+
+
+
+Table 3. Quantities Estimated Through Function Minimization  
+*Note: With the exception of the stock-recruitment steepness and variances for residuals/selectivity, all priors are hardwired in code.*
+
+| Quantity             | Description                                                                                                        | Prior                                 |
+|----------------------|--------------------------------------------------------------------------------------------------------------------|----------------------------------------|
+| $B_0^r$              | Equilibrium spawning biomass for regime $r$ (unfished)                                                            | $B_0^r \sim \mathcal{U}[0, \infty)$     |
+| $h$                  | Stock-recruitment steepness (can also be fixed)                                                                   | $h \sim \mathcal{N}(\tilde{h}, 0.1^2)$  |
+| $\tilde{h}$          | Mean steepness (if estimated)                                                                                     | $\tilde{h} = 0.5 \cdot (\text{I10} + \text{I11})$ |
+| $\bar{q}$            | Log of catchability                                                                                               | $\mathcal{U}[-\infty, \infty]$         |
+| $\ln \hat{q}_{\text{aerial}}$ | Log of aerial survey catchability                                                                  | $\mathcal{U}[-\infty, \infty]$         |
+| $\tau_{\text{aerial}}$       | SD of added process error for aerial survey                                                        | $\mathcal{U}[0, 0.8]$                  |
+| $m^1$                | Natural mortality at age 1                                                                                         | $\mathcal{N}(0.4, 0.04^2)$             |
+| $m^4$                | Natural mortality at age 4                                                                                         | $\mathcal{U}[m^1, m^{10}]$ or fixed    |
+| $m^{10}$             | Natural mortality at age 10                                                                                        | $\mathcal{N}(0.1, 0.06^2)$             |
+| $m^{30}$             | Natural mortality at age 30                                                                                        | $\mathcal{U}(0.20, 0.50)$ or fixed     |
+| $\delta_y$           | Stock-recruitment residuals (the prior is on $\tau_y$, not $\delta_y$)                                            | $\tau_y \sim \mathcal{N}(0, \sigma_R^2)$|
+| $\lambda_{f,a}$      | Selectivity parameter for age $a$ in fishery $f$                                                                  | $\mathcal{U}[0, \infty)$               |
+| $\gamma_{f,y,a}$     | Log of selectivity change at age $a$ in year $y$ for fishery $f$                                                  | $\mathcal{N}(0, \sigma_{S^f_y}^2)$     |
+| $\sigma_I^2$         | Variance of CPUE index data                                                                                       | $\sigma_I^2 \sim \mathcal{U}[0.2, \infty)$ |
+| $\sigma_R^2$         | Variance of S-R residuals (fixed in reference set)                                                                | $\sigma_R^2 \sim \mathcal{U}[0.4, \infty)$ |
+| $h^*_{c,i}$          | Proportion of tagged fish from cohort $c$ recaptured in first season                                              | —                                      |
+| $\nu_{c,i}$          | Tag reporting rate for fish of age $i$, cohort $c$                                                                | —                                      |
+
+
+# MSY Calculation
+
+Equilibrium maximum sustainable yield (MSY) is calculated using the same equations as the conditioning model. For each year:
+
+- Equilibrium yield is **maximized numerically** using year-specific weights and selectivities-at-age.
+- The allocation between the six fisheries is fixed at observed proportions for that year.
+- A stand-alone ADMB code is used to solve for $F_f$ (fishing mortality by fishery), maximizing total yield while minimizing the squared deviation from observed catch allocations.
+
+---
+
+### Total Mortality at Age
+
+To compute overall $F^{\text{msy}}$, harvest rates at age across seasons are first summed to calculate total mortality at age:
+
+$$
+F_a^{\text{msy}} =
+- \log \left(
+\left( 1 - \sum_{f \in f^1} H_{f,a}^{\text{msy}} \right)
+\left( 1 - \sum_{f \in f^2} H_{f,a}^{\text{msy}} \right)
+\right)
+$$
+
+---
+
+### Average $F^{\text{msy}}$
+
+The overall MSY fishing mortality is computed as a biomass-weighted average across ages 2–15:
+
+$$
+F_{2{-}15}^{\text{msy}} =
+\frac{
+\sum_{a=2}^{15} F_a^{\text{msy}} B_a^{\text{msy}}
+}{
+\sum_{a=2}^{15} B_a^{\text{msy}}
+}
+$$
+
+where:
+
+- $F_a^{\text{msy}}$ = total mortality at age $a$ under MSY
+- $B_a^{\text{msy}}$ = equilibrium biomass at age $a$ using **season 1 weights**
+
+
+# Projection Model
+
+## Model Structure
+
+Same as in the conditioning model, except that only **four fisheries** are included:
+
+1. LL1 fishery (second season)  
+2. LL2 fishery (second season)  
+3. Indonesian spawning fishery (first season)  
+4. Australian surface fishery (first season)
+
+---
+
+## Population Model
+
+Identical to the conditioning model.
+
+---
+
+### Initial Abundances
+
+Initial age-specific abundances at the start of the projection are estimated from the conditioning model. To represent process error in recruitment, **lognormal autocorrelated error** is added to initial abundances for ages 0–2.
+
+Let $Y_1$ be the first projection year. Then:
+
+$$
+N_{Y_1,4} = \hat{N}_{Y_1,4} \cdot \exp(0.4z - 0.08)
+$$
+
+$$
+N_{Y_1,3} = \hat{N}_{Y_1,3} \cdot \exp(0.4z - 0.08)
+$$
+
+$$
+N_{Y_1,2} = \hat{N}_{Y_1,2} \cdot \exp(\epsilon_{Y_1})
+$$
+
+$$
+N_{Y_1,1} = \hat{N}_{Y_1,1} \cdot \exp(\hat{\rho} \epsilon_{Y_1-2} + \epsilon_{Y_1-1})
+$$
+
+$$
+N_{Y_1,0} = \hat{N}_{Y_1,0} \cdot \exp(\hat{\rho}^2 \epsilon_{Y_1-2} + \hat{\rho} \epsilon_{Y_1-1} + \epsilon_{Y_1})
+$$
+
+Where:
+
+- $z \sim \mathcal{N}(0,1)$  
+- $\epsilon_y \sim \mathcal{N}\left(0, (1 - \hat{\rho}^2) \sigma_R^2\right)$  
+- $\sigma_R = 0.6$ (and an extra lognormal SD = 0.4 is added for $\hat{N}_{Y_1-4,0}$ and $\hat{N}_{Y_1-3,0}$)
+
+---
+
+These imply:
+
+$$
+\tau_{Y_1} = \hat{\tau}_{Y_1} + \hat{\rho}^2 \epsilon_{Y_1-2} + \hat{\rho} \epsilon_{Y_1-1} + \epsilon_{Y_1}
+$$
+
+and subsequent years follow:
+
+$$
+\tau_{Y_1+1} = \hat{\rho} \tau_{Y_1} + \epsilon_{Y_1+1}, \quad \text{etc.}
+$$
+
+> This formulation assumes autocorrelated recruitment starting in $Y_1-2$.  
+> However, it may **over-propagate uncertainty** from $Y_1-3$ due to grid-based point estimates.  
+> A **sensitivity run** with uncorrelated $\tau_{Y_1-2}$ is used to address this.
+
+
+
+### Selectivity in Projections
+
+Unlike the conditioning model, the projection model does **not** use random-walk selectivity due to the risk of unrealistic drift. Instead, it starts from the **mean of the last 3 estimates** and adds **autocorrelated process error**:
+
+For fishery 1:
+
+$$
+s_{1,a,y+1} = s_{1,a,y} \cdot \exp(\varepsilon_{a,y}) \quad \text{for } a_1^{\min,s} \le a \le a_1^{\max,s}, \text{ where } a_1^{\min,s} = 2, a_1^{\max,s} = 17
+$$
+
+Error terms follow:
+
+$$
+\varepsilon_{a,y} = \rho_{\text{sel}} \varepsilon_{a,y-1} + \sqrt{1 - \rho_{\text{sel}}^2} \, \eta_{a,y}, \quad \eta_{a,y} \sim \mathcal{N}(0, 0.05^2), \quad \rho_{\text{sel}} = 0.7
+$$
+
+Selectivities update **annually** (not in blocks, as in the conditioning model).
+
+---
+
+### Australian Surface Fishery (Special Case)
+
+Let:
+
+$$
+P_{y,3} = \frac{N_{y,3}}{\sum_{a=1}^5 N_{y,a}}, \quad \bar{P}_3 = \frac{1}{10} \sum_{y=y_{n2}-9}^{y_{n2}} P_{y,3}
+$$
+
+If $P_{y,3} \ge \bar{P}_3$:
+
+$$
+s_{6,y,a} = s_{6,y-1,a} \cdot \exp(\varepsilon_{6,y,a}) \quad \text{for } a = 1, \ldots, 5, \quad \varepsilon_{6,y,a} \sim \mathcal{N}(0, 0.1^2)
+$$
+
+Otherwise, **boost selectivity at age 3**:
+
+$$
+s_{6,y,3} = s_{6,y-1,3} \cdot \left(1 + 0.5 \cdot \frac{\bar{P}_3 - P_{y,3}}{P_{y,3}} \right), \quad
+s_{6,y,a} = s_{6,y-1,a} \cdot \exp(\varepsilon_{6,y,a}) \text{ for } a = 1,2,4,5
+$$
+
+---
+
+### Fishing Mortality in Projections
+
+Year subscripts are omitted for simplicity. Catch is defined as:
+
+$$
+C = \sum_a \sum_f s_{f,a} F_f N_a
+$$
+
+For each fishery $f$:
+
+$$
+C = \sum_f C_f, \quad \text{where } C_f = \left( \sum_a s_{f,a} N_a \right) F_f
+$$
+
+Solving for $F_f$:
+
+$$
+F_f = \frac{C_f}{\sum_a s_{f,a} N_a}
+$$
+
+Additionally:
+
+- Catch-at-age:
+  $$
+  C_{f,a} = s_{f,a} F_f N_a
+  $$
+- Catch at age:
+  $$
+  C_a = \left( \sum_f s_{f,a} F_f \right) N_a
+  $$
+
+> **Note**: A problem occurs if $\sum_f s_{f,a} F_f > 1$, which implies $C_a > N_a$.
+
+### Harvest Rate Bounding and Selectivity Adjustment
+
+In early MP trials, the model enforced a hard upper bound on age-specific exploitation rates:
+
+$$
+\sum_f s_{f,a} F_f \le 0.99
+$$
+
+When this bound was exceeded, the model reduced the catch at that age, **but not** the selectivity or fishing mortality for other ages, which led to underutilization of TAC.
+
+An improved method adjusts selectivities **at the age(s)** where the bound is exceeded (from MP Workshop II, Queenstown, April 2003).
+
+---
+
+## Case of One Fleet (or Non-Overlapping Selectivities)
+
+Assume a single fleet. If $F \le 0.9$, no adjustment is needed. If $F > 0.9$, apply:
+
+$$
+C = \sum_a g(s_a F) N_a \tag{A1}
+$$
+
+where the adjusted selectivity is:
+
+$$
+s_a^* = \frac{g(s_a F)}{F} \tag{A2}
+$$
+
+The proposed function $g(x)$ is:
+
+$$
+g(x) =
+\begin{cases}
+x & \text{if } x \le 0.9 \\
+0.9 + 0.08 \left[ 1 - \exp(-10(x - 0.9)) \right] & \text{if } x > 0.9
+\end{cases} \tag{A3}
+$$
+
+Notes:
+- $g(x) < 1$ ensures $C_a = g(s_a F) N_a < N_a$
+- $g(x)$ is continuous and differentiable at $x = 0.9$
+- Newton-Raphson is used to solve equation (A1) for $F$
+
+---
+
+## Extension to Multiple Fleets
+
+If:
+
+$$
+\sum_f s_{f,a} F_f \le 0.9 \quad \text{for all } a
+$$
+
+then proceed as normal. Otherwise, for any age $a$:
+
+$$
+C = \sum_a g\left(\sum_f s_{f,a} F_f\right) N_a \tag{A4}
+$$
+
+To proportionally reduce selectivity for each fleet at age $a$, define:
+
+$$
+s^*_{f,a} = s_{f,a} \cdot
+\left[
+\frac{g\left( \sum_f s_{f,a} F_f \right)}{\sum_f s_{f,a} F_f}
+\right] \tag{A5}
+$$
+
+Then:
+
+$$
+C_{f,a} = s^*_{f,a} F_f N_a = s_{f,a} F_f N_a \cdot
+\left[
+\frac{g\left( \sum_f s_{f,a} F_f \right)}{\sum_f s_{f,a} F_f}
+\right] \tag{A6}
+$$
+
+This guarantees:
+
+$$
+C_a = \sum_f C_{f,a} = g\left( \sum_f s_{f,a} F_f \right) N_a < N_a
+$$
+
+### Solving for $F_f$ When Bounds Are Exceeded
+
+Once selectivity is adjusted via:
+
+$$
+C_a = \sum_f C_{f,a} = \sum_f s^*_{f,a} F_f N_a = 
+g\left(\sum_f s_{f,a} F_f \right) N_a
+$$
+
+Then the **coupled non-linear equations** must be solved for each $F_f$:
+
+$$
+C_f = \sum_a C_{f,a} = \sum_a s^*_{f,a} F_f N_a
+$$
+
+Substituting $s^*_{f,a}$ gives:
+
+$$
+C_f = \sum_a s_{f,a} F_f \left[
+\frac{g\left( \sum_{f'} s_{f',a} F_{f'} \right)}{\sum_{f'} s_{f',a} F_{f'}}
+\right] N_a
+$$
+
+This system is solved via a **multivariate root-finding method**, e.g., extended Newton-Raphson.
+
+---
+
+## CPUE and Aerial Survey Deviations
+
+### CPUE Deviations
+
+CPUE is simulated with **autocorrelated trends in catchability**, superimposed on a **0.5% annual increase in $q$**.
+
+- Empirical autocorrelation $\rho_{\text{cpue}}$ from the 1969–2008 time series is used
+- For standard deviation, choose $\max(0.2, \text{empirical SD})$
+- Override option: pass a value via `-cpuestd xx` in the projection code
+
+---
+
+### Aerial Survey Deviations
+
+Aerial indices are simulated by adding **lognormal deviations**. Initially, empirical variance and autocorrelation were used, but:
+
+- When $\tau_{\text{aerial}}$ was estimated as free, it produced **high SDs (0.50–0.60)**
+- Residual autocorrelation was very low
+
+To stabilize, $\tau_{\text{aerial}}$ was **fixed to 0.18**, which with sampling error gives SD $\approx 0.30$ in log space.
+
+---
+
+### Simulation Grid for Deviation Parameters
+
+| Scenario       | SD (CPUE) | $\rho_{\text{cpue}}$                      |
+|----------------|-----------|-------------------------------------------|
+| Base           | 0.20      | Empirical, correlated to last residual    |
+| highCpueCV     | 0.30      | Empirical, correlated to last residual    |
+
+For the **aerial survey**, autocorrelation is set to **zero** due to short residual history and poor reliability.
+
+## Lags in Data Availability and Schedules of TAC Changes
+
+When a TAC for year $y$ is determined, the projection code assumes the following data are available:
+
+- Catch data up to year $y - 3$
+- TAC up to year $y - 1$
+- CPUE up to year $y - 3$
+- Age-composition data up to year $y - 3$
+- Gene tagging index (age-2 abundance) in year $y - 4$
+- Pop-HSP index of SSB for year $y - 7$
+
+---
+
+### Options for TAC Update Frequency
+
+OMMP8 recommended calculating the **first TAC under the new MP** in 2020 (for implementation in 2021), to allow more time for stakeholder consultation. This skips the usual lag **for only the first decision**.
+
+The control file includes four TAC update schedule options:
+
+- **Option (a)**: First TAC in 2021, then every year — no lag  
+- **Option (b)**: First TAC in 2021, then every other year — no lag  
+- **Option (c)**: First TAC in 2021, then every 3 years — no lag  
+- **Option (d)**: First TAC in 2021, then every 3 years — with one-year lag  
+
+---
+
+### Example Schedule: Options (c) and (d)
+
+In all cases, the first TAC is calculated in **2019**, using:
+
+- CPUE: up to 2018  
+- Gene tagging: 2016, 2017  
+- POP/HSP SSB: up to 2014  
+
+| Decision Year | Catch Data | CPUE Data | Gene Tagging | POP/HSP SSB | TAC Year | TAC Change? |
+|---------------|-------------|------------|---------------|--------------|-----------|--------------|
+| 2017          | 2016        | 2016       | —             | 2012         | 2019      | hardwired     |
+| 2018          | 2017        | 2017       | 2016          | 2013         | 2020      | hardwired     |
+| 2019          | 2018        | 2018       | 2017          | 2014         | 2021      | **Yes**       |
+| 2020          | 2019        | 2019       | 2018          | 2015         | 2020      | No            |
+| 2021          | 2020        | 2020       | 2019          | 2016         | 2021      | No            |
+| 2022          | 2021        | 2021       | 2020          | 2017         | 2022      | **Yes**       |
+| 2023          | 2022        | 2022       | 2021          | 2018         | 2023      | No            |
+
+> **Note**: Shaded years (2016–2018) represent real data available in 2019 (not OM-simulated).
+
+## Tuning Levels
+
+The SFMWG proposed six tuning options based on the probability of rebuilding the stock to 20% of $SSB_0$ in 25 or 30 years. Short-term checkpoints were also set at 12 or 15 years from present, to check the probability of rebuilding to 10% of $SSB_0$ or to $2 \times SSB_{2009}$.
+
+### Tuning Options and Checkpoint Years
+
+| Tuning Level | Tuning Year | P[SSB ≥ 0.2 $SSB_0$] | Short-term Checkpoint Year |
+|--------------|-------------|----------------------|-----------------------------|
+| 1            | 2035        | 0.60                 | 2022                        |
+| 2            | 2035        | 0.70                 | 2022                        |
+| 3            | 2035        | 0.90                 | 2022                        |
+| 4            | 2040        | 0.60                 | 2025                        |
+| 5            | 2040        | 0.70                 | 2025                        |
+| 6            | 2040        | 0.90                 | 2025                        |
+
+---
+
+## Maximum–Minimum TAC Changes
+
+The SFMWG recommended examining two options for TAC change bounds:
+
+- Maximum change: 3000 t or 5000 t  
+- Minimum change: 100 t
+
+These are **not hardcoded**, so users can explore alternative values.  
+However, prior analyses indicated that these bounds act as **binding constraints**, especially at high tuning levels where the TAC was often pushed against the maximum limit.
