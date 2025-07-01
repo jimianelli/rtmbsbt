@@ -70,14 +70,14 @@ Two different formulations for fisheries selectivites had been implmented in TMB
 - **LL3 and LL4 as direct removals**: LL4 implemented; LL3 flagged due to high early 
 catches—requires careful MCMC evaluation. This was retained as an option but issues identified
 earlier on appear to be resolved.
-- **Japanese LL size composition**: Set up switches to toggle between LL1 and CPUE-based length frequencies.
+- **Japanese LL size composition**: Set up switches to toggle between LL1 and CPUE-based length frequencies. A working document describing this process was prepared and is available in the GitHub repository.
 
 ## MCMC and Profiling
 
 - **Performance of MCMC runs**: MCMC runs completed at the ESC meeting in 2024 using TMB code V4 were still having some issues with divergent transitions, likely arising from the parameterisation of selectivity and the treatment of catches as direct removals for some of the fisheries. 
 Initial MCMC runs were conducted using the V1 version of the RTMB code and, as expected, diagnostics showed high number of divergences similar to those obtained with the TMB code. MCMC performance was much improved when RTMB V4 was used with the 2D AR1 option for fishery selectivities. The mixing was very good, and issues identified in previous years appeared to be completely resolved:only a few (3-4) divergent transitions remained and the corresponding parameters did not appear to be outliers.  
 
-- **Likelihood profiling tailored to `sbt_model`**: Work initiated and completed.
+- **Likelihood profiling tailored to the new code**: Work initiated and completed.
 
 ## Pending Coding Tasks
 
