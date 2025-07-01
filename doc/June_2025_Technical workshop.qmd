@@ -40,12 +40,10 @@ This report summarizes the tasks addressed during the workshop.
 
 # Background
 
-The operating model used for SBT stock assessments and for testing management procedures is coded in ADMB. By the end of the OMMP technical workshop in Tokyo, Nov 2023, the ADMB  model had been converted to TMB, and we had checked that the calculated likelihood values from the ADMB and TMB codes matched. This version of the TMB code is referred to as V1.  Then, at the CCSBT OMMP workshop in Seattle, June 2024, we continued to make modifications to the TMB V1 code to add several improvements to the model, including: modifying the tag likelihood to directly remove tags recovered during the year of release and thus eliminate the H* parameters, addition of an option to fit to LFs/AFs using a multinomial, Dirichlet, or Dirichlet-multinomial distribution, and changes to the POP likelihood to account for age uncertainty in the adults (see the Report of the Fourteenth Operating Model and Management Procedure Technical Meeting for full details). These changes were made incrementally in TMB versions V2 through V4. 
+The operating model used for SBT stock assessments and for testing management procedures is coded in ADMB. By the end of the OMMP technical workshop in Tokyo, Nov 2023, the ADMB  model had been converted to TMB, and we had checked that the calculated likelihood values from the ADMB and TMB codes matched. This version of the TMB code is referred to as V1.  Then, at the CCSBT OMMP workshop in Seattle, June 2024, we continued to make modifications to the TMB V1 code to add several improvements to the model, including: modifying the tag likelihood to directly remove tags recovered during the year of release and thus eliminate the H* parameters, addition of an option to fit to LFs/AFs using a multinomial, Dirichlet, or Dirichlet-multinomial distribution, and changes to the POP likelihood to account for age uncertainty in the adults (see @OMMP14 for full details). These changes were made incrementally in TMB versions V2 through V4. 
 
-Since that time, RTMB has been released. RTMB allows model coding to be done completely within the R programming environment [@R-base],
-which is  much more user-friendly than using "pure" TMB (which is basically a C++ library with quite strict coding practices, @Kristensen2016).
-
-It also means that the model can be run one line at a time, which significantly speeds up model development. As such, part of the work done during the June 2025 technical working group meeting was to convert the TMB code to RTMB, as outlined below.
+Since that time, RTMB [@RTMB] has been released. RTMB allows model coding to be done completely within the R programming environment [@R-base],
+which is  much more user-friendly than using "pure" TMB (which is basically a C++ library with quite strict coding practices, @Kristensen2016). It also means that the model can be run one line at a time, which significantly speeds up model development. As such, part of the work done during the June 2025 technical working group meeting was to convert the TMB code to RTMB, as outlined below.
 
 
 # Agenda Topics and Task Summary
@@ -65,19 +63,19 @@ Two different formulations for fisheries selectivites had been implmented in TMB
     2) Gaussian Markov Random Fields (GMRF);
 
    As explained below, these formulations resulted in poor MCMC performance. A third option was therefore implemented in the RTMB code: 
-   3) A 2-dimensional (age and year) AR1 process. Parameters of the 2D AR1 functions were tuned to obtained similar age/length-frequency likelihhod values as with the ADMB approach.
+   3) A 2-dimensional (age and year) AR1 process. Parameters of the 2D AR1 functions were tuned to obtain similar age/length-frequency likelihood values as with the ADMB approach.
 
 - **LL3 and LL4 as direct removals**: LL4 implemented; LL3 flagged due to high early 
 catches—requires careful MCMC evaluation. This was retained as an option but issues identified
 earlier on appear to be resolved.
-- **Japanese LL size composition**: Set up switches to toggle between LL1 and CPUE-based length frequencies. A working document describing this process was prepared and is available in the GitHub repository.
+- **Japanese LL size composition**: Added capability to estimate separate selectivity functions for the Japanese LL fishery for the purpose of predicting CPUE. Selectivity parameters are fitted to size frequency data processed by weighting the LL size frequency of each spatio-temporal cell by both nominal and model-derived CPUE for the cell. The model-based CPUE is derived from a GAM (generalized additive model). Details are provided in Attachment 1.
 
 ## MCMC and Profiling
 
 - **Performance of MCMC runs**: MCMC runs completed at the ESC meeting in 2024 using TMB code V4 were still having some issues with divergent transitions, likely arising from the parameterisation of selectivity and the treatment of catches as direct removals for some of the fisheries. 
-Initial MCMC runs were conducted using the V1 version of the RTMB code and, as expected, diagnostics showed high number of divergences similar to those obtained with the TMB code. MCMC performance was much improved when RTMB V4 was used with the 2D AR1 option for fishery selectivities. The mixing was very good, and issues identified in previous years appeared to be completely resolved:only a few (3-4) divergent transitions remained and the corresponding parameters did not appear to be outliers.  
+Initial MCMC runs were conducted using the V1 version of the RTMB code and, as expected, diagnostics showed a high number of divergences, similar to the results obtained with the TMB code. MCMC performance was much improved when the RTMB equivalent to TMB V4 code was used with the 2D AR1 option for fishery selectivities. The mixing was very good, and issues identified in previous years appeared to be completely resolved:only a few (3-4) divergent transitions remained and the corresponding parameters did not appear to be outliers.  
 
-- **Likelihood profiling tailored to the new code**: Work initiated and completed.
+- **Likelihood profiling tailored to the new RTMB code`**: Work initiated and completed.
 
 ## Pending Coding Tasks
 
@@ -116,4 +114,4 @@ MCMC runs, aiding in diagnostics. This enhances the R package ADNUTS
 :::
 
 
-![Group photo from the OMMP workshop](images/Workshop_photo.png)
+![Group photo from the technical workshop](images/Workshop_photo.png)
