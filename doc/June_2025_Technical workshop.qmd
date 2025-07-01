@@ -4,7 +4,7 @@
 # author: "Workshop Participants"
 # date: 2025-06-29
 format:
-  html:
+ html:
     toc: true
     toc-depth: 2
     number-sections: true
@@ -31,12 +31,11 @@ bibliography: references.bib
 
 # Overview/summary
 
-In June 2025, a small technical working group was convened at the behest of the 
+On June 24-28 2025, a small technical working group was convened at the behest of the 
 CCSBT to address the ongoing development of the assessment and operating model 
 upgrades using RTMB (R-Template Model Builder). This workshop was held at the
-at the University of Washington and met from 0900-1700 each day. 
-Major efforts focused on porting legacy ADMB/TMB code to RTMB, refining MCMC and 
-selectivity functionality. The group also enhanced model diagnostics and usability.
+University of Washington and met from 0900-1700 each day. 
+Major efforts focused on porting legacy ADMB/TMB code to RTMB, refining the formulation of the selectivity functions and evaluating MCMC performance. The group also enhanced model diagnostics and usability.
 We note that the evolution of the model had an important development to change from 
 using "pure" TMB (basically a C++ library with quite strict coding practices, @Kristensen2016) to a
 version that can use code and all variable definitions (for data and parameters; @RTMB) 
@@ -47,44 +46,50 @@ The next section summarizes a rough outline of tasks addressed during the worksh
 
 ## Convert ADMB/TMB to RTMB
 
-- **Dynamics**: Successfully translated state dynamics to RTMB for all the relavent population
+- **Dynamics**: Successfully translated state dynamics to RTMB for all the relevant population
 processes.
-- **Likelihoods**: Continued work integrated more components including robust likelihoods and tag-based data.
-This was completed in two steps, first including the original ADMB-compatible likelihood components and 
-then updating with the refined and improved version (equivalent to the "v4" TMB model from 2023. 
+- **Likelihoods**: Continued work integrated more components including robust likelihoods for close-kin and tagging data.
+This was completed in two steps, first including the original ADMB-compatible likelihood components (i.e., model version 1) and checking that calculated likelihood values from the RTMB code matched those obtained with the TMB/ADMB codes. Then, some functions were updated with the refined and improved versions (equivalent to the "v4" TMB model) from 2024. This included direct removal of tags recovered during the year of release and elimination of the H* parameters, addition of an option to fit to LFs/AFs using a multinomial, Dirichlet, or Dirichlet-multinomial distribution, and	changes to the POP likelihood to account for age uncertainty in the adults. 
 
-## MCMC and Profiling
-
-- **MCMC runs on V1 RTMB code**: Initial runs completed; diagnostics indicate divergence in some configurations.
-- **Likelihood profiling tailored to `sbt_model`**: Work initiated and completed.
 
 ## Fleet and Selectivity Adjustments
+
+- **Options for selectivities**: 
+Two different formulations for fisheries selectivites had been implmented in TMB and were converted to RTMB: 
+    1) Smoothers (transferred over from the ADMB model using third differences);
+    2) Gaussian Markov Random Fields (GMRF);
+
+   As explained below, these formulations resulted in poor MCMC performance. A third option was therefore implemented in the RTMB code: 
+   3) A 2-dimensional (age and year) AR1 process. Parameters of the 2D AR1 functions were tuned to obtained similar age/length-frequency likelihhod values as with the ADMB approach.
 
 - **LL3 and LL4 as direct removals**: LL4 implemented; LL3 flagged due to high early 
 catches—requires careful MCMC evaluation. This was retained as an option but issues identified
 earlier on appear to be resolved.
 - **Japanese LL size composition**: Set up switches to toggle between LL1 and CPUE-based length frequencies.
 
-## MSY and Projections
+## MCMC and Profiling
 
-The following features were identified to enhance the model's MSY estimation and projections:
+- **Performance of MCMC runs**: MCMC runs completed at the ESC meeting in 2024 using TMB code V4 were still having some issues with divergent transitions, likely arising from the parameterisation of selectivity and the treatment of catches as direct removals for some of the fisheries. 
+Initial MCMC runs were conducted using the V1 version of the RTMB code and, as expected, diagnostics showed high number of divergences similar to those obtained with the TMB code. MCMC performance was much improved when RTMB V4 was used with the 2D AR1 option for fishery selectivities. The mixing was very good, and issues identified in previous years appeared to be completely resolved:only a few (3-4) divergent transitions remained and the corresponding parameters did not appear to be outliers.  
 
-- **MSY estimation**: Framework coded with conditioning on selectivity, size, and catch allocations.
-- **Projection code**: Implemented time-invariant weights and ALKs.
-- **ARIMA for Rdev and q projections**: Catchability now includes autocorrelation and effort creep.
-- **Multivariate ARIMA for selectivity**: Design requires full simulation of datasets.
-- **Projection specifications**: Drafted options (AR1 vs. multivariate ARIMA) for Darcy to implement.
+- **Likelihood profiling tailored to `sbt_model`**: Work initiated and completed.
+
+## Pending Coding Tasks
+
+- **MSY estimation**: The old ABMB code used to estimate MSY parameters conditioned on selectivity, size-at-age parameters, and catch allocations needs to be converted to RTMB.
+- **Projection code**: 
+    - Implemented assuming time-invariant weights and ALKs.
+    - ARIMA for Rdev, selectivity and q projections: In the ADMB projection code, catchability included autocorrelation and effort creep while recruitment deviations and selectivity at age parameters were projected based on AR1 models. Alternative options including multivariate ARIMA and 2D AR1 for selectivity will be implemented.
+    - Simulation of datasets: CPUE, gene tagging and close-kin data.
 
 ## Model Features and Testing
 
-- **OSA residuals**: Preliminary tests were made but further development required (this is an alternative
-model diagnostic).
-- **2D AR1 selectivity**: Behavior verified when defined and successfully implemented(e.g., LL4)—issues 
-identified in previous years appear to be completely resolved(!).
+- **One-Step-Ahead (OSA) residuals**: Preliminary tests were made but further development required (this is an alternative
+model diagnostic to replace Pearson residuals).
 
 ## Utilities and Communications
 
-- **Example scripts**: Prepared scripts for running models, generating likelihood profiles, and basic diagnostics.
+- **Example scripts**: Scripts will be prepared for running models, generating likelihood profiles, and basic diagnostics.
 - **Issue on multinomial density**: Submitted to TMB / RTMB developer.
 - **Divergent transitions plot**: Developed a plot to visualize divergent transitions in 
 MCMC runs, aiding in diagnostics. This enhances the R package ADNUTS
@@ -100,7 +105,10 @@ MCMC runs, aiding in diagnostics. This enhances the R package ADNUTS
 4. Paige Eveson
 5. James Ianelli  
 
+::: {style="text-align: center;"}
+<div style="text-align: center;">
+</div>
+:::
+
 
 ![Group photo from the OMMP workshop](images/Workshop_photo.png)
-
-/Users/jim/Downloads/Report June_2025_Technical workshop.qmd
