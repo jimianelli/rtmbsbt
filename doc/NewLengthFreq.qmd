@@ -10,6 +10,14 @@ format:
     # title-block-banner: true
     # title-block-logo: images/ccsbt_logo.png
     embed-resources: true
+  docx:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    fig_caption: true
+    code-fold: true          # enables collapsible code
+    code-tools: true         # optional: adds a show/hide button
+    toc-title: "Table of Contents"
 bibliography: references.bib
 ---
 
